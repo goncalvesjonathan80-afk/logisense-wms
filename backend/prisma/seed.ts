@@ -304,8 +304,8 @@ async function main() {
     data: {
       orderNumber: 'PED-2026-001',
       customer: 'TechLog Soluções Campinas',
+      customerName: 'TechLog Soluções Campinas',
       status: 'PENDING',
-      priority: 'HIGH',
       notes: 'Carregamento prioritário na doca 1',
     },
   });
@@ -321,8 +321,8 @@ async function main() {
     data: {
       orderNumber: 'PED-2026-002',
       customer: 'Distribuidora Metropolitana SP',
+      customerName: 'Distribuidora Metropolitana SP',
       status: 'PICKING',
-      priority: 'MEDIUM',
       notes: 'Coleta agendada para 16:00',
     },
   });
@@ -335,8 +335,8 @@ async function main() {
     data: {
       orderNumber: 'PED-2026-003',
       customer: 'Sigma Indústria & Comércio',
+      customerName: 'Sigma Indústria & Comércio',
       status: 'READY',
-      priority: 'LOW',
       notes: 'Aguardando transportadora',
     },
   });
@@ -345,8 +345,8 @@ async function main() {
     data: {
       orderNumber: 'PED-2026-004',
       customer: 'Varejo Santos Logística',
+      customerName: 'Varejo Santos Logística',
       status: 'SHIPPED',
-      priority: 'MEDIUM',
       notes: 'Despachado via transportadora parceira',
     },
   });

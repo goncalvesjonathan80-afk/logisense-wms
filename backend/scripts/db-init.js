@@ -7,6 +7,8 @@ const { initEnv } = require('./env-init');
 const backendDir = path.resolve(__dirname, '..');
 const prismaDir = path.join(backendDir, 'prisma');
 const envPath = path.join(backendDir, '.env');
+const isProduction = process.env.NODE_ENV === 'production';
+const allowedVolumeDir = path.resolve(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data');
 
 function resolveAndValidateSqlitePath(databaseUrl) {
   if (!databaseUrl || typeof databaseUrl !== 'string' || databaseUrl.trim() === '') {
@@ -20,17 +22,22 @@ function resolveAndValidateSqlitePath(databaseUrl) {
   if (!trimmed.startsWith('file:')) {
     return {
       valid: false,
-      reason: `DATABASE_URL deve utilizar o protocolo SQLite local ("file:..."). Valor recebido não inicia com "file:".`,
+      reason: `DATABASE_URL deve utilizar o protocolo SQLite ("file:..."). Valor recebido não inicia com "file:".`,
     };
   }
 
   const rawPathWithQuery = trimmed.slice('file:'.length).trim();
-  const rawPath = rawPathWithQuery.split('?')[0].trim();
+  let rawPath = rawPathWithQuery.split('?')[0].trim();
+
+  // Tratamento para URLs do tipo file:///data/logisense.db
+  if (rawPath.startsWith('//') && !rawPath.startsWith('///')) {
+    rawPath = rawPath.slice(2);
+  }
 
   if (!rawPath || rawPath === '.' || rawPath === './' || rawPath === '.\\' || rawPath.endsWith('/') || rawPath.endsWith('\\')) {
     return {
       valid: false,
-      reason: `Caminho de arquivo SQLite inválido em DATABASE_URL ("${trimmed}"). Especifique um nome de arquivo válido (ex.: "file:./dev.db").`,
+      reason: `Caminho de arquivo SQLite inválido em DATABASE_URL ("${trimmed}"). Especifique um nome de arquivo válido (ex.: "file:./dev.db" ou "file:/data/logisense.db").`,
     };
   }
 
@@ -41,26 +48,54 @@ function resolveAndValidateSqlitePath(databaseUrl) {
     };
   }
 
-  // O Prisma resolve caminhos relativos em DATABASE_URL a partir do diretório onde está o schema.prisma (backend/prisma)
-  const resolvedDbPath = path.isAbsolute(rawPath)
-    ? path.normalize(rawPath)
-    : path.resolve(prismaDir, rawPath);
+  let resolvedDbPath;
 
-  // Impedir que um caminho relativo escape do diretório do backend (proteção contra path traversal)
-  const relativeToBackend = path.relative(backendDir, resolvedDbPath);
-  if (relativeToBackend.startsWith('..') || path.isAbsolute(relativeToBackend)) {
-    return {
-      valid: false,
-      reason: `Por segurança, o arquivo SQLite deve residir dentro do diretório do backend (${backendDir}). Caminho rejeitado: "${resolvedDbPath}".`,
-    };
+  if (isProduction) {
+    // Em produção (Railway), o banco de dados deve residir exclusivamente no volume persistente autorizado
+    resolvedDbPath = path.isAbsolute(rawPath)
+      ? path.normalize(rawPath)
+      : path.resolve(allowedVolumeDir, rawPath);
+
+    const relativeToVolume = path.relative(allowedVolumeDir, resolvedDbPath);
+    if (relativeToVolume.startsWith('..') || path.isAbsolute(relativeToVolume)) {
+      return {
+        valid: false,
+        reason: `Em produção, o banco de dados deve residir exclusivamente no volume persistente autorizado (${allowedVolumeDir}). Caminho configurado foi rejeitado: "${resolvedDbPath}".`,
+      };
+    }
+  } else {
+    // No ambiente local/desenvolvimento, o Prisma resolve caminhos relativos a partir do diretório do schema (backend/prisma)
+    resolvedDbPath = path.isAbsolute(rawPath)
+      ? path.normalize(rawPath)
+      : path.resolve(prismaDir, rawPath);
+
+    // Impedir que um caminho escape do diretório do backend (proteção contra path traversal local)
+    const relativeToBackend = path.relative(backendDir, resolvedDbPath);
+    if (relativeToBackend.startsWith('..') || path.isAbsolute(relativeToBackend)) {
+      return {
+        valid: false,
+        reason: `Por segurança, no modo local o arquivo SQLite deve residir dentro do diretório do backend (${backendDir}). Caminho rejeitado: "${resolvedDbPath}".`,
+      };
+    }
   }
 
   const parentDir = path.dirname(resolvedDbPath);
   if (!fs.existsSync(parentDir)) {
-    return {
-      valid: false,
-      reason: `O diretório de destino do banco de dados não existe: "${parentDir}". Verifique a variável DATABASE_URL.`,
-    };
+    if (isProduction && parentDir === allowedVolumeDir) {
+      try {
+        fs.mkdirSync(parentDir, { recursive: true });
+      } catch (err) {
+        return {
+          valid: false,
+          reason: `Não foi possível acessar ou criar o diretório do volume persistente: "${parentDir}". Erro: ${err.message}`,
+        };
+      }
+    } else {
+      return {
+        valid: false,
+        reason: `O diretório de destino do banco de dados não existe: "${parentDir}". Verifique a variável DATABASE_URL.`,
+      };
+    }
   }
 
   const parentStat = fs.statSync(parentDir);
@@ -81,7 +116,7 @@ function resolveAndValidateSqlitePath(databaseUrl) {
   if (!resolvedDbPath.toLowerCase().endsWith('.db') && !resolvedDbPath.toLowerCase().endsWith('.sqlite') && !resolvedDbPath.toLowerCase().endsWith('.sqlite3')) {
     return {
       valid: false,
-      reason: `O arquivo configurado em DATABASE_URL deve possuir extensão .db, .sqlite ou .sqlite3. Caminho recebido: "${ path.basename(resolvedDbPath) }".`,
+      reason: `O arquivo configurado em DATABASE_URL deve possuir extensão .db, .sqlite ou .sqlite3. Caminho recebido: "${path.basename(resolvedDbPath)}".`,
     };
   }
 
@@ -92,19 +127,39 @@ function resolveAndValidateSqlitePath(databaseUrl) {
   };
 }
 
-function main() {
+async function verifyExistingSchemaCompatibility(rawUrl) {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient({ datasources: { db: { url: rawUrl } } });
+    await prisma.$queryRawUnsafe('SELECT 1');
+    await prisma.user.count();
+    await prisma.product.count();
+    await prisma.order.count();
+    await prisma.$disconnect();
+    return { compatible: true };
+  } catch (err) {
+    return {
+      compatible: false,
+      detail: err.message || String(err),
+    };
+  }
+}
+
+async function main() {
   console.log('======================================================================');
-  console.log('🛡️  LOGISENSE WMS — Inicialização Segura do Banco SQLite Local (db:init)');
+  console.log(`🛡️  LOGISENSE WMS — Inicialização Segura do Banco SQLite (${isProduction ? 'Produção Railway' : 'Local'})`);
   console.log('======================================================================');
 
-  // Garantir que .env exista caso o usuário tenha acabado de clonar o repositório
-  if (!process.env.DATABASE_URL && !fs.existsSync(envPath)) {
+  // No modo local, garantir que .env exista caso o usuário tenha acabado de clonar
+  if (!isProduction && !process.env.DATABASE_URL && !fs.existsSync(envPath)) {
     initEnv({ silentIfExists: true });
   }
 
-  dotenv.config({ path: envPath });
+  if (!isProduction && fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  }
 
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = process.env.DATABASE_URL || (isProduction ? 'file:/data/logisense.db' : undefined);
   const validation = resolveAndValidateSqlitePath(databaseUrl);
 
   if (!validation.valid) {
@@ -113,27 +168,41 @@ function main() {
     process.exit(1);
   }
 
-  const { resolvedDbPath } = validation;
-  const relativeDisplay = path.relative(backendDir, resolvedDbPath);
+  const { resolvedDbPath, rawUrl } = validation;
+  const displayPath = isProduction
+    ? resolvedDbPath
+    : `backend/${path.relative(backendDir, resolvedDbPath).replace(/\\/g, '/')}`;
 
   // =========================================================================
-  // CENÁRIO B — O ARQUIVO SQLITE JÁ EXISTE (Populado, 0 bytes ou estrutura inesperada)
+  // CENÁRIO B — O ARQUIVO SQLITE JÁ EXISTE (Populado, 0 bytes ou estrutura existente)
   // Verificação estrita ANTES de executar prisma db push ou seed
   // =========================================================================
   if (fs.existsSync(resolvedDbPath)) {
     const stat = fs.statSync(resolvedDbPath);
-    console.log(`🔒 Arquivo SQLite detectado em: backend/${relativeDisplay.replace(/\\/g, '/')} (${stat.size} bytes).`);
+    console.log(`🔒 Arquivo SQLite detectado em: ${displayPath} (${stat.size} bytes).`);
     console.log('✅ Proteção ativa: O arquivo de banco já existe no caminho configurado.');
     console.log('   • "prisma db push" NÃO foi executado.');
     console.log('   • "seed.ts" NÃO foi executado.');
     console.log('   • Nenhum byte do arquivo existente foi alterado ou sobrescrito.');
+
     if (stat.size === 0) {
       console.log('⚠️  Atenção: O arquivo existente possui 0 bytes (arquivo vazio).');
       console.log('   Por segurança, o script não sobrescreve arquivos existentes silenciosamente.');
+      process.exit(0);
     }
-    console.log('💡 Orientação: Para continuar usando o banco atual, basta iniciar o servidor com "npm run dev".');
-    console.log('   Caso deseje criar um banco novo do zero em outro arquivo sem tocar no atual,');
-    console.log('   aponte DATABASE_URL para um novo caminho ainda inexistente (ex.: DATABASE_URL="file:./novo_ambiente.db") e execute "npm run db:init".');
+
+    // Validação de compatibilidade do esquema
+    console.log('🔍 Verificando compatibilidade de esquema da base existente...');
+    const schemaCheck = await verifyExistingSchemaCompatibility(rawUrl);
+    if (!schemaCheck.compatible) {
+      console.error('❌ Incompatibilidade de esquema detectada no banco de dados existente!');
+      console.error('🔒 A inicialização foi cancelada de forma segura para preservar integralmente os dados.');
+      console.error(`   Detalhe técnico: ${schemaCheck.detail}`);
+      process.exit(1);
+    }
+
+    console.log('✅ Esquema do banco validado com sucesso e 100% preservado.');
+    console.log('🚀 O banco de dados está pronto para inicialização da aplicação.');
     process.exit(0);
   }
 
@@ -141,10 +210,10 @@ function main() {
   // CENÁRIO A — O ARQUIVO SQLITE AINDA NÃO EXISTE
   // Criar o banco, aplicar o schema de 12 modelos e popular com dados iniciais
   // =========================================================================
-  console.log(`🆕 Nenhum arquivo encontrado em: backend/${relativeDisplay.replace(/\\/g, '/')}`);
-  console.log('⚙️  Iniciando provisionamento seguro de novo banco SQLite local...');
+  console.log(`🆕 Nenhum arquivo encontrado em: ${displayPath}`);
+  console.log(`⚙️  Iniciando provisionamento seguro de novo banco SQLite (${isProduction ? 'Produção' : 'Local'})...`);
 
-  const execEnv = { ...process.env, DATABASE_URL: validation.rawUrl };
+  const execEnv = { ...process.env, DATABASE_URL: rawUrl };
 
   try {
     console.log('\n[1/3] Gerando Prisma Client (npx prisma generate)...');
@@ -153,14 +222,14 @@ function main() {
     console.log('\n[2/3] Criando estrutura de 12 tabelas no novo arquivo SQLite (npx prisma db push --skip-generate)...');
     execSync('npx prisma db push --skip-generate', { cwd: backendDir, stdio: 'inherit', env: execEnv });
 
-    console.log('\n[3/3] Populando dados iniciais de demonstração (npx tsx prisma/seed.ts)...');
+    console.log('\n[3/3] Populando dados iniciais (npx tsx prisma/seed.ts)...');
     execSync('npx tsx prisma/seed.ts', { cwd: backendDir, stdio: 'inherit', env: execEnv });
 
     const finalStat = fs.statSync(resolvedDbPath);
     console.log('\n======================================================================');
     console.log(`✅ Novo banco SQLite criado e inicializado com sucesso!`);
-    console.log(`📁 Arquivo: backend/${relativeDisplay.replace(/\\/g, '/')} (${finalStat.size} bytes)`);
-    console.log('🚀 O LOGISENSE WMS está pronto para uso ("npm run dev").');
+    console.log(`📁 Arquivo: ${displayPath} (${finalStat.size} bytes)`);
+    console.log('🚀 O LOGISENSE WMS está pronto para uso.');
     console.log('======================================================================');
   } catch (err) {
     console.error('\n❌ Ocorreu um erro durante a inicialização do novo banco SQLite.');

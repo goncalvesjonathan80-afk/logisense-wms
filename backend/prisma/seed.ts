@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -75,11 +76,32 @@ async function main() {
 
   console.log('🌱 Banco de dados vazio confirmado (12 tabelas com 0 registros). Iniciando seed para novo ambiente do LOGISENSE WMS (Campinas - SP)...');
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  let adminPassword = 'admin123';
+  let gerentePassword = 'gerente123';
+  let operadorPassword = 'operador123';
+  let consultaPassword = 'consulta123';
+
+  if (isProduction) {
+    adminPassword = process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(12).toString('base64url');
+    gerentePassword = process.env.INITIAL_GERENTE_PASSWORD || crypto.randomBytes(12).toString('base64url');
+    operadorPassword = process.env.INITIAL_OPERADOR_PASSWORD || crypto.randomBytes(12).toString('base64url');
+    consultaPassword = process.env.INITIAL_CONSULTA_PASSWORD || crypto.randomBytes(12).toString('base64url');
+
+    console.log('🔒 [PRODUÇÃO] Inicialização de senhas seguras de produção executada.');
+    if (process.env.INITIAL_ADMIN_PASSWORD) {
+      console.log('ℹ️  Senha do usuário ADMIN definida via INITIAL_ADMIN_PASSWORD.');
+    } else {
+      console.log(`🔑 Senha temporária inicial gerada para ADMIN (admin@logisense.com): ${adminPassword}`);
+      console.log('⚠️  Anote esta senha com segurança e altere-a após o primeiro login.');
+    }
+  }
+
   // 1. Criar Usuários (4 perfis RBAC)
-  const adminHash = await bcrypt.hash('admin123', 10);
-  const gerenteHash = await bcrypt.hash('gerente123', 10);
-  const operadorHash = await bcrypt.hash('operador123', 10);
-  const consultaHash = await bcrypt.hash('consulta123', 10);
+  const adminHash = await bcrypt.hash(adminPassword, 10);
+  const gerenteHash = await bcrypt.hash(gerentePassword, 10);
+  const operadorHash = await bcrypt.hash(operadorPassword, 10);
+  const consultaHash = await bcrypt.hash(consultaPassword, 10);
 
   const admin = await prisma.user.create({
     data: {

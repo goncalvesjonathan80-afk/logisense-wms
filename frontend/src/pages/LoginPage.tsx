@@ -164,34 +164,36 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Perfis de Acesso de Demonstração */}
-          <div className="mt-6 pt-5 border-t border-slate-700">
-            <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-2.5">
-              <span>Perfis de Demonstração</span>
-              <span className="text-[10px] text-slate-500">1 clique para testar</span>
-            </div>
+          {/* Perfis de Acesso de Demonstração (ocultos quando desativados em produção) */}
+          {demoAccounts.length > 0 && (
+            <div className="mt-6 pt-5 border-t border-slate-700">
+              <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-2.5">
+                <span>Perfis de Demonstração</span>
+                <span className="text-[10px] text-slate-500">1 clique para testar</span>
+              </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {demoAccounts.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => fillDemoAccount(acc)}
-                  className="p-2 text-left bg-slate-900 hover:bg-slate-750 border border-slate-700/80 rounded-sm transition-colors group"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-200 group-hover:text-sky-300">
-                      {acc.role}
-                    </span>
-                    <Shield className="w-3 h-3 text-slate-500" />
-                  </div>
-                  <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                    {acc.email}
-                  </div>
-                </button>
-              ))}
+              <div className="grid grid-cols-2 gap-2">
+                {demoAccounts.map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => fillDemoAccount(acc)}
+                    className="p-2 text-left bg-slate-900 hover:bg-slate-750 border border-slate-700/80 rounded-sm transition-colors group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-200 group-hover:text-sky-300">
+                        {acc.role}
+                      </span>
+                      <Shield className="w-3 h-3 text-slate-500" />
+                    </div>
+                    <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                      {acc.email}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Rodapé Corporativo */}
@@ -216,7 +218,7 @@ export const LoginPage: React.FC = () => {
               </h3>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Para recuperação de credenciais de operadores no ambiente local, utilize as contas funcionais de teste listadas no painel de demonstração (ex: <code>admin@logisense.com</code> com senha <code>admin123</code>).
+              Para recuperação ou redefinição de credenciais de acesso corporativo, solicite o procedimento junto ao administrador de TI responsável pelo LOGISENSE WMS.
             </p>
             <button
               type="button"

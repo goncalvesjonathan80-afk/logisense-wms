@@ -155,6 +155,12 @@ export async function getMe(req: AuthenticatedRequest, res: Response): Promise<v
 
 export async function getDemoAccounts(_req: Request, res: Response): Promise<void> {
   try {
+    // Em ambiente de produção, desativa a exposição pública de contas demo e senhas sugeridas
+    if (config.isProduction && process.env.ENABLE_DEMO_ACCOUNTS !== 'true') {
+      res.json({ accounts: [] });
+      return;
+    }
+
     const users = await prisma.user.findMany({
       select: {
         name: true,
@@ -171,7 +177,7 @@ export async function getDemoAccounts(_req: Request, res: Response): Promise<voi
         email: u.email,
         role: u.role,
         department: u.department,
-        suggestedPassword: `${u.role.toLowerCase()}123`,
+        suggestedPassword: config.isProduction ? undefined : `${u.role.toLowerCase()}123`,
       })),
     });
   } catch (error) {

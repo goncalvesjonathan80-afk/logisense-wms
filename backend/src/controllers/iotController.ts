@@ -114,8 +114,8 @@ export async function simulateIoTTelemetry(req: AuthenticatedRequest, res: Respo
     // Suporta { readings: [...] }, { area, temperature, humidity } ou chamada sem parâmetros
     const normalizeArea = (a?: string) => {
       if (!a) return 'Área A';
-      const clean = a.trim();
-      return clean.startsWith('Área ') ? clean : `Área ${clean}`;
+      const stripped = a.trim().replace(/^(?:[aá]rea\s+)+/i, '').trim();
+      return `Área ${stripped || 'A'}`;
     };
 
     let itemsToSimulate: Array<{ area: string; temperature?: number; humidity?: number }> = [];

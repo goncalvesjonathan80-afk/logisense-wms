@@ -65,6 +65,16 @@ export const MovementsPage: React.FC = () => {
     loadData();
   }, [selectedType]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isModalOpen) {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
+
   const selectedProduct = products.find((p) => p.id === formData.productId);
 
   const openModal = (initialType: 'ENTRY' | 'EXIT' = 'ENTRY') => {
@@ -150,29 +160,33 @@ export const MovementsPage: React.FC = () => {
         actions={
           <>
             <button
+              type="button"
               onClick={loadData}
               disabled={loading}
               className="p-1.5 text-slate-600 bg-white hover:bg-slate-100 border border-slate-300 rounded-sm transition-colors"
               title="Atualizar histórico"
+              aria-label="Atualizar histórico de movimentações"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
 
             {canRegisterMovement && (
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => openModal('ENTRY')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-600 rounded-sm transition-colors"
                 >
-                  <ArrowDownLeft className="w-3.5 h-3.5" />
+                  <ArrowDownLeft className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Registrar Entrada</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => openModal('EXIT')}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-rose-700 hover:bg-rose-600 rounded-sm transition-colors"
                 >
-                  <ArrowUpRight className="w-3.5 h-3.5" />
+                  <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Registrar Saída</span>
                 </button>
               </div>
@@ -183,25 +197,42 @@ export const MovementsPage: React.FC = () => {
 
       {/* Alertas */}
       {successMessage && (
-        <div className="p-3 rounded-sm bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between">
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-3 rounded-sm bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between"
+        >
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
             <span>{successMessage}</span>
           </div>
-          <button onClick={() => setSuccessMessage(null)} className="text-emerald-600 hover:text-emerald-800">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={() => setSuccessMessage(null)}
+            aria-label="Fechar mensagem de sucesso"
+            className="text-emerald-600 hover:text-emerald-800"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       )}
 
       {error && (
-        <div className="p-3 rounded-sm bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between">
+        <div
+          role="alert"
+          className="p-3 rounded-sm bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between"
+        >
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
-          <button onClick={() => setError(null)} className="text-rose-600 hover:text-rose-800">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Fechar mensagem de erro"
+            className="text-rose-600 hover:text-rose-800"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -209,9 +240,13 @@ export const MovementsPage: React.FC = () => {
       {/* Barra de Filtros */}
       <div className="bg-white p-3 rounded-md border border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider text-[11px]">Tipo de Operação:</span>
+          <Filter className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+          <label htmlFor="mov-type-filter" className="text-xs font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+            Tipo de Operação:
+          </label>
           <select
+            id="mov-type-filter"
+            aria-label="Filtrar movimentações por tipo de operação"
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
             className="px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-sm text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-500"
@@ -233,13 +268,13 @@ export const MovementsPage: React.FC = () => {
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold uppercase tracking-wider text-[10px]">
-                <th className="py-2.5 px-3">Data / Hora</th>
-                <th className="py-2.5 px-3 text-center">Tipo</th>
-                <th className="py-2.5 px-3">SKU / Produto</th>
-                <th className="py-2.5 px-3 text-center">Quantidade</th>
-                <th className="py-2.5 px-3">Usuário Responsável</th>
-                <th className="py-2.5 px-3">Origem / Destino</th>
-                <th className="py-2.5 px-3">Observações</th>
+                <th scope="col" className="py-2.5 px-3">Data / Hora</th>
+                <th scope="col" className="py-2.5 px-3 text-center">Tipo</th>
+                <th scope="col" className="py-2.5 px-3">SKU / Produto</th>
+                <th scope="col" className="py-2.5 px-3 text-center">Quantidade</th>
+                <th scope="col" className="py-2.5 px-3">Usuário Responsável</th>
+                <th scope="col" className="py-2.5 px-3">Origem / Destino</th>
+                <th scope="col" className="py-2.5 px-3">Observações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -330,25 +365,32 @@ export const MovementsPage: React.FC = () => {
 
       {/* Modal de Registro de Movimentação */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="movement-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70"
+        >
           <div className="bg-white rounded-md border border-slate-300 shadow-xl max-w-md w-full overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <ArrowRightLeft className="w-4 h-4 text-sky-700" />
+              <h3 id="movement-modal-title" className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <ArrowRightLeft className="w-4 h-4 text-sky-700" aria-hidden="true" />
                 Registrar Movimentação de Estoque
               </h3>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
+                aria-label="Fechar modal de movimentação"
                 className="text-slate-400 hover:text-slate-600 p-1"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
             <form onSubmit={handleFormSubmit} className="p-4 space-y-3.5">
               {formError && (
-                <div className="p-2.5 rounded-sm bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
+                <div role="alert" className="p-2.5 rounded-sm bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>{formError}</span>
                 </div>
               )}

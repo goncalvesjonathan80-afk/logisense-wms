@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -38,10 +38,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+      <div
+        role="status"
+        aria-live="polite"
+        className="min-h-screen flex items-center justify-center bg-slate-900 text-white"
+      >
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs text-slate-400">Carregando LOGISENSE WMS...</span>
+          <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" aria-hidden="true"></div>
+          <span className="text-xs text-slate-300">Carregando LOGISENSE WMS...</span>
         </div>
       </div>
     );
@@ -54,8 +58,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   // Verificar permissão RBAC para a rota atual
   if (!canAccessRoute(location.pathname)) {
     return (
-      <div className="bg-white p-8 rounded-xl border border-rose-200 shadow-sm max-w-lg mx-auto my-12 text-center">
-        <div className="inline-flex p-3 rounded-full bg-rose-100 text-rose-600 mb-4">
+      <div
+        role="alert"
+        className="bg-white p-8 rounded-xl border border-rose-200 shadow-sm max-w-lg mx-auto my-12 text-center"
+      >
+        <div className="inline-flex p-3 rounded-full bg-rose-100 text-rose-600 mb-4" aria-hidden="true">
           <ShieldAlert className="w-8 h-8" />
         </div>
         <h2 className="text-lg font-bold text-slate-800">Acesso Restrito por Perfil (RBAC)</h2>
@@ -65,12 +72,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
         <p className="text-xs text-slate-500 mt-1">
           Para acessar, entre com uma conta com perfil de privilégio adequado (ex: GERENTE ou ADMIN).
         </p>
-        <a
-          href="/dashboard"
+        <Link
+          to="/dashboard"
           className="inline-block mt-5 px-4 py-2 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-500 transition-colors"
         >
           Voltar ao Dashboard
-        </a>
+        </Link>
       </div>
     );
   }

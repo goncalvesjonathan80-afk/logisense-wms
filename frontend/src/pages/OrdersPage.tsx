@@ -149,6 +149,17 @@ export const OrdersPage: React.FC = () => {
     loadData();
   }, [selectedStatus, searchTerm]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (selectedOrder) setSelectedOrder(null);
+        else if (isCreateModalOpen) setIsCreateModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCreateModalOpen, selectedOrder]);
+
   // Contadores para os Cards
   const stats = {
     total: orders.length,
@@ -275,20 +286,23 @@ export const OrdersPage: React.FC = () => {
         actions={
           <>
             <button
+              type="button"
               onClick={loadData}
               disabled={loading}
               className="p-1.5 text-slate-600 bg-white hover:bg-slate-100 border border-slate-300 rounded-sm transition-colors"
               title="Atualizar listagem"
+              aria-label="Atualizar listagem de pedidos"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
 
             {canOperate && (
               <button
+                type="button"
                 onClick={handleOpenCreateModal}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-sky-700 hover:bg-sky-600 rounded-sm transition-colors"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Novo Pedido</span>
               </button>
             )}
@@ -298,25 +312,42 @@ export const OrdersPage: React.FC = () => {
 
       {/* Alertas */}
       {successMessage && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-sm flex items-center justify-between text-emerald-800 text-xs">
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-3 bg-emerald-50 border border-emerald-200 rounded-sm flex items-center justify-between text-emerald-800 text-xs"
+        >
           <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" aria-hidden="true" />
             <span>{successMessage}</span>
           </div>
-          <button onClick={() => setSuccessMessage(null)} className="text-emerald-600">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={() => setSuccessMessage(null)}
+            aria-label="Fechar mensagem de sucesso"
+            className="text-emerald-600"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       )}
 
       {error && (
-        <div className="p-3 bg-rose-50 border border-rose-200 rounded-sm flex items-center justify-between text-rose-800 text-xs">
+        <div
+          role="alert"
+          className="p-3 bg-rose-50 border border-rose-200 rounded-sm flex items-center justify-between text-rose-800 text-xs"
+        >
           <div className="flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
-          <button onClick={() => setError(null)} className="text-rose-600">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Fechar mensagem de erro"
+            className="text-rose-600"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -397,9 +428,10 @@ export const OrdersPage: React.FC = () => {
       {/* Filtros e Busca */}
       <div className="bg-white p-3 rounded-md border border-slate-200 flex flex-col md:flex-row gap-2.5 items-center justify-between">
         <div className="relative w-full md:w-80">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
           <input
             type="text"
+            aria-label="Buscar pedidos por número ou cliente"
             placeholder="Buscar por PED-... ou cliente..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -408,9 +440,13 @@ export const OrdersPage: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2 w-full md:w-auto">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider text-[11px]">Status:</span>
+          <Filter className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+          <label htmlFor="orders-status-filter" className="text-xs font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+            Status:
+          </label>
           <select
+            id="orders-status-filter"
+            aria-label="Filtrar pedidos por status"
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
             className="px-2 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 font-medium text-slate-700"
@@ -431,27 +467,27 @@ export const OrdersPage: React.FC = () => {
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="py-2.5 px-3">Número</th>
-                <th className="py-2.5 px-3">Cliente / Destinatário</th>
-                <th className="py-2.5 px-3 text-center">Itens</th>
-                <th className="py-2.5 px-3 text-center">Status</th>
-                <th className="py-2.5 px-3">Responsável</th>
-                <th className="py-2.5 px-3">Data</th>
-                <th className="py-2.5 px-3 text-right">Ações</th>
+                <th scope="col" className="py-2.5 px-3">Número</th>
+                <th scope="col" className="py-2.5 px-3">Cliente / Destinatário</th>
+                <th scope="col" className="py-2.5 px-3 text-center">Itens</th>
+                <th scope="col" className="py-2.5 px-3 text-center">Status</th>
+                <th scope="col" className="py-2.5 px-3">Responsável</th>
+                <th scope="col" className="py-2.5 px-3">Data</th>
+                <th scope="col" className="py-2.5 px-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {loading && orders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-5 py-10 text-center text-slate-400">
-                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-sky-600" />
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-sky-600" aria-hidden="true" />
                     Carregando pedidos...
                   </td>
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-5 py-10 text-center text-slate-500">
-                    <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                    <Package className="w-8 h-8 mx-auto mb-2 text-slate-300" aria-hidden="true" />
                     <p className="font-semibold text-slate-700">Nenhum pedido encontrado</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       Clique em "Novo Pedido" para registrar um pedido.
@@ -499,45 +535,49 @@ export const OrdersPage: React.FC = () => {
                       </td>
                       <td className="py-2.5 px-3 text-right space-x-1.5">
                         <button
+                          type="button"
                           onClick={() => {
                             setActionError(null);
                             setSelectedOrder(order);
                           }}
+                          aria-label={`Ver detalhes do pedido ${order.orderNumber}`}
                           className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-sky-700 hover:text-sky-800 hover:bg-slate-100 border border-slate-300 rounded-sm transition-colors"
                         >
-                          <Eye className="w-3.5 h-3.5" />
+                          <Eye className="w-3.5 h-3.5" aria-hidden="true" />
                           <span>Detalhes</span>
                         </button>
 
-                        {(order.status === 'PENDING' || order.status === 'PICKING') && (
+                        {canOperate && (order.status === 'PENDING' || order.status === 'PICKING') && (
                           <Link
                             to="/operacoes/picking"
                             className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-sm hover:bg-amber-100 transition-colors"
                             title="Acessar módulo de Picking"
                           >
-                            <ShoppingCart className="w-3.5 h-3.5" />
+                            <ShoppingCart className="w-3.5 h-3.5" aria-hidden="true" />
                             <span>Ir p/ Picking</span>
                           </Link>
                         )}
 
-                        {order.status === 'PICKED' && (
+                        {canOperate && order.status === 'PICKED' && (
                           <Link
                             to="/operacoes/expedicao"
                             className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-sm hover:bg-emerald-100 transition-colors"
                             title="Acessar módulo de Expedição"
                           >
-                            <Truck className="w-3.5 h-3.5" />
+                            <Truck className="w-3.5 h-3.5" aria-hidden="true" />
                             <span>Ir p/ Expedição</span>
                           </Link>
                         )}
 
                         {canCancel && order.status !== 'SHIPPED' && order.status !== 'CANCELLED' && (
                           <button
+                            type="button"
                             onClick={() => handleCancelOrder(order.id)}
                             className="inline-flex items-center space-x-1 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-300 rounded-sm transition-colors"
                             title="Cancelar pedido"
+                            aria-label={`Cancelar pedido ${order.orderNumber}`}
                           >
-                            <Ban className="w-3.5 h-3.5" />
+                            <Ban className="w-3.5 h-3.5" aria-hidden="true" />
                           </button>
                         )}
                       </td>
@@ -552,25 +592,32 @@ export const OrdersPage: React.FC = () => {
 
       {/* MODAL: NOVO PEDIDO */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 overflow-y-auto">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-order-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 overflow-y-auto"
+        >
           <div className="bg-white w-full max-w-2xl rounded-md shadow-xl border border-slate-300 overflow-hidden my-8">
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center space-x-2 text-sky-700">
-                <Package className="w-4 h-4" />
-                <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Novo Pedido</h3>
+                <Package className="w-4 h-4" aria-hidden="true" />
+                <h3 id="create-order-modal-title" className="font-bold text-slate-900 text-xs uppercase tracking-wider">Novo Pedido</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCreateModalOpen(false)}
+                aria-label="Fechar modal de novo pedido"
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-sm"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
             <form onSubmit={handleSubmitCreate} className="p-5 space-y-3.5">
               {createError && (
-                <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-sm text-xs text-rose-700 flex items-center space-x-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <div role="alert" className="p-2.5 bg-rose-50 border border-rose-200 rounded-sm text-xs text-rose-700 flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                   <span>{createError}</span>
                 </div>
               )}
@@ -722,13 +769,18 @@ export const OrdersPage: React.FC = () => {
 
       {/* MODAL: DETALHES DO PEDIDO */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 overflow-y-auto">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="order-details-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 overflow-y-auto"
+        >
           <div className="bg-white w-full max-w-2xl rounded-md shadow-xl border border-slate-300 overflow-hidden my-6">
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center space-x-2 text-sky-700">
-                <Package className="w-4 h-4" />
+                <Package className="w-4 h-4" aria-hidden="true" />
                 <div>
-                  <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+                  <h3 id="order-details-modal-title" className="font-bold text-slate-900 text-xs uppercase tracking-wider">
                     Pedido {selectedOrder.orderNumber}
                   </h3>
                   <p className="text-[11px] text-slate-500">
@@ -737,10 +789,12 @@ export const OrdersPage: React.FC = () => {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedOrder(null)}
+                aria-label="Fechar detalhes do pedido"
                 className="text-slate-400 hover:text-slate-600 p-1 rounded-sm"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -782,10 +836,10 @@ export const OrdersPage: React.FC = () => {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px]">
                     <tr>
-                      <th className="px-3 py-2">Produto / SKU</th>
-                      <th className="px-3 py-2">Localização</th>
-                      <th className="px-3 py-2 text-center">Qtd Solicitada</th>
-                      <th className="px-3 py-2 text-center">Qtd Separada</th>
+                      <th scope="col" className="px-3 py-2">Produto / SKU</th>
+                      <th scope="col" className="px-3 py-2">Localização</th>
+                      <th scope="col" className="px-3 py-2 text-center">Qtd Solicitada</th>
+                      <th scope="col" className="px-3 py-2 text-center">Qtd Separada</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -820,27 +874,29 @@ export const OrdersPage: React.FC = () => {
                 Fechar
               </button>
 
-              <div className="flex items-center space-x-2">
-                {(selectedOrder.status === 'PENDING' || selectedOrder.status === 'PICKING') && (
-                  <Link
-                    to="/operacoes/picking"
-                    className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-500 rounded-sm transition-colors flex items-center space-x-1"
-                  >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    <span>Ir para Picking &rarr;</span>
-                  </Link>
-                )}
+              {canOperate && (
+                <div className="flex items-center space-x-2">
+                  {(selectedOrder.status === 'PENDING' || selectedOrder.status === 'PICKING') && (
+                    <Link
+                      to="/operacoes/picking"
+                      className="px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-500 rounded-sm transition-colors flex items-center space-x-1"
+                    >
+                      <ShoppingCart className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Ir para Picking &rarr;</span>
+                    </Link>
+                  )}
 
-                {selectedOrder.status === 'PICKED' && (
-                  <Link
-                    to="/operacoes/expedicao"
-                    className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-600 rounded-sm transition-colors flex items-center space-x-1"
-                  >
-                    <Truck className="w-3.5 h-3.5" />
-                    <span>Ir para Expedição &rarr;</span>
-                  </Link>
-                )}
-              </div>
+                  {selectedOrder.status === 'PICKED' && (
+                    <Link
+                      to="/operacoes/expedicao"
+                      className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-600 rounded-sm transition-colors flex items-center space-x-1"
+                    >
+                      <Truck className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Ir para Expedição &rarr;</span>
+                    </Link>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

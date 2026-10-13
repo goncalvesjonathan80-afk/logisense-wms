@@ -116,6 +116,12 @@ export const IoTPage: React.FC = () => {
     }
   };
 
+  const formatAreaLabel = (area?: string | null) => {
+    if (!area) return 'Armazém';
+    const stripped = String(area).replace(/^(?:[aá]rea\s+)+/i, '').trim();
+    return stripped ? `Área ${stripped}` : 'Armazém';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -126,21 +132,24 @@ export const IoTPage: React.FC = () => {
         actions={
           <>
             <button
+              type="button"
               onClick={loadData}
               disabled={loading}
               className="p-1.5 text-slate-600 bg-white hover:bg-slate-100 border border-slate-300 rounded-sm transition-colors"
               title="Atualizar leituras"
+              aria-label="Atualizar leituras de telemetria e alertas"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
 
             {canOperate && (
               <button
+                type="button"
                 onClick={handleSimulate}
                 disabled={simulating}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 border border-slate-900 rounded-sm shadow-none transition-colors disabled:opacity-50"
               >
-                <Cpu className={`w-3.5 h-3.5 text-sky-400 ${simulating ? 'animate-spin' : ''}`} />
+                <Cpu className={`w-3.5 h-3.5 text-sky-400 ${simulating ? 'animate-spin' : ''}`} aria-hidden="true" />
                 <span>{simulating ? 'Gerando Leituras...' : 'Gerar Nova Leitura'}</span>
               </button>
             )}
@@ -162,25 +171,42 @@ export const IoTPage: React.FC = () => {
 
       {/* Mensagens de Sucesso ou Erro */}
       {successMessage && (
-        <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-md flex items-center justify-between text-emerald-950 text-xs">
+        <div
+          role="status"
+          aria-live="polite"
+          className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-md flex items-center justify-between text-emerald-950 text-xs"
+        >
           <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0" aria-hidden="true" />
             <span>{successMessage}</span>
           </div>
-          <button onClick={() => setSuccessMessage(null)} className="text-emerald-700 hover:text-emerald-900">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={() => setSuccessMessage(null)}
+            aria-label="Fechar mensagem de sucesso"
+            className="text-emerald-700 hover:text-emerald-900"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       )}
 
       {error && (
-        <div className="p-2.5 bg-rose-50 border border-rose-300 rounded-md flex items-center justify-between text-rose-950 text-xs">
+        <div
+          role="alert"
+          className="p-2.5 bg-rose-50 border border-rose-300 rounded-md flex items-center justify-between text-rose-950 text-xs"
+        >
           <div className="flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 text-rose-700 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 text-rose-700 flex-shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
-          <button onClick={() => setError(null)} className="text-rose-700 hover:text-rose-900">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Fechar mensagem de erro"
+            className="text-rose-700 hover:text-rose-900"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
       )}
@@ -233,8 +259,10 @@ export const IoTPage: React.FC = () => {
             >
               <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
                 <div className="flex items-center space-x-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="font-bold text-slate-900 text-xs tracking-wide">{reading.area}</span>
+                  <MapPin className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+                  <span className="font-bold text-slate-900 text-xs tracking-wide">
+                    {formatAreaLabel(reading.area)}
+                  </span>
                 </div>
                 <span
                   className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase border ${
@@ -252,7 +280,7 @@ export const IoTPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-2.5 mt-3">
                 <div className="bg-slate-50 p-2.5 rounded-sm border border-slate-200">
                   <div className="flex items-center space-x-1 text-slate-600 mb-0.5">
-                    <Thermometer className="w-3.5 h-3.5 text-slate-600" />
+                    <Thermometer className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />
                     <span className="text-[10px] uppercase font-semibold">Temperatura</span>
                   </div>
                   <div className="text-lg font-bold text-slate-900 font-mono">
@@ -263,7 +291,7 @@ export const IoTPage: React.FC = () => {
 
                 <div className="bg-slate-50 p-2.5 rounded-sm border border-slate-200">
                   <div className="flex items-center space-x-1 text-slate-600 mb-0.5">
-                    <Droplets className="w-3.5 h-3.5 text-slate-600" />
+                    <Droplets className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />
                     <span className="text-[10px] uppercase font-semibold">Umidade</span>
                   </div>
                   <div className="text-lg font-bold text-slate-900 font-mono">
@@ -291,8 +319,11 @@ export const IoTPage: React.FC = () => {
       {/* Seletor de Abas: Alertas vs Histórico de Telemetria */}
       <div className="bg-white rounded-md border border-slate-200 shadow-none overflow-hidden">
         <div className="flex items-center justify-between px-4 pt-3 border-b border-slate-200 bg-slate-50">
-          <div className="flex space-x-4">
+          <div className="flex space-x-4" role="tablist" aria-label="Abas de monitoramento IoT">
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'alerts'}
               onClick={() => setActiveTab('alerts')}
               className={`pb-2.5 text-xs font-semibold border-b-2 transition-colors flex items-center space-x-1.5 ${
                 activeTab === 'alerts'
@@ -300,11 +331,14 @@ export const IoTPage: React.FC = () => {
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" aria-hidden="true" />
               <span>Central de Alertas de Ambiente ({alerts.length})</span>
             </button>
 
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'telemetry'}
               onClick={() => setActiveTab('telemetry')}
               className={`pb-2.5 text-xs font-semibold border-b-2 transition-colors flex items-center space-x-1.5 ${
                 activeTab === 'telemetry'
@@ -312,7 +346,7 @@ export const IoTPage: React.FC = () => {
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
-              <Activity className="w-3.5 h-3.5 text-sky-600" />
+              <Activity className="w-3.5 h-3.5 text-sky-600" aria-hidden="true" />
               <span>Histórico de Telemetria</span>
             </button>
           </div>
@@ -320,9 +354,11 @@ export const IoTPage: React.FC = () => {
           {/* Filtros Contextuais */}
           <div className="flex items-center space-x-3 pb-2.5">
             <div className="flex items-center space-x-1 text-xs text-slate-600">
-              <Filter className="w-3 h-3 text-slate-400" />
-              <span className="font-medium">Área:</span>
+              <Filter className="w-3 h-3 text-slate-400" aria-hidden="true" />
+              <label htmlFor="iot-area-filter" className="font-medium">Área:</label>
               <select
+                id="iot-area-filter"
+                aria-label="Filtrar por área monitorada"
                 value={selectedAreaFilter}
                 onChange={(e) => setSelectedAreaFilter(e.target.value)}
                 className="px-2 py-1 text-xs bg-white border border-slate-300 rounded-sm font-medium text-slate-700 focus:outline-none"
@@ -336,8 +372,10 @@ export const IoTPage: React.FC = () => {
 
             {activeTab === 'alerts' && (
               <div className="flex items-center space-x-1 text-xs text-slate-600">
-                <span className="font-medium">Status:</span>
+                <label htmlFor="iot-status-filter" className="font-medium">Status:</label>
                 <select
+                  id="iot-status-filter"
+                  aria-label="Filtrar alertas por status"
                   value={selectedAlertStatus}
                   onChange={(e) => setSelectedAlertStatus(e.target.value as any)}
                   className="px-2 py-1 text-xs bg-white border border-slate-300 rounded-sm font-medium text-slate-700 focus:outline-none"
@@ -357,20 +395,20 @@ export const IoTPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 uppercase font-semibold text-[10px] tracking-wider">
                 <tr>
-                  <th className="px-3 py-2.5">Área</th>
-                  <th className="px-3 py-2.5">Tipo</th>
-                  <th className="px-3 py-2.5">Evento Detectado</th>
-                  <th className="px-3 py-2.5 text-center">Valor / Limite</th>
-                  <th className="px-3 py-2.5">Data/Hora</th>
-                  <th className="px-3 py-2.5">Status</th>
-                  <th className="px-3 py-2.5 text-right">Ação</th>
+                  <th scope="col" className="px-3 py-2.5">Área</th>
+                  <th scope="col" className="px-3 py-2.5">Tipo</th>
+                  <th scope="col" className="px-3 py-2.5">Evento Detectado</th>
+                  <th scope="col" className="px-3 py-2.5 text-center">Valor / Limite</th>
+                  <th scope="col" className="px-3 py-2.5">Data/Hora</th>
+                  <th scope="col" className="px-3 py-2.5">Status</th>
+                  <th scope="col" className="px-3 py-2.5 text-right">Ação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {alerts.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
-                      <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto mb-1" />
+                      <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto mb-1" aria-hidden="true" />
                       <p className="font-semibold text-slate-700">Nenhum alerta pendente</p>
                       <p className="text-[11px] text-slate-400 mt-0.5">
                         Todos os sensores estão operando dentro das faixas normais.
@@ -383,14 +421,14 @@ export const IoTPage: React.FC = () => {
                     return (
                       <tr key={alert.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-3 py-2.5 font-bold text-slate-800">
-                          {alert.area || 'Armazém'}
+                          {formatAreaLabel(alert.area)}
                         </td>
                         <td className="px-3 py-2.5">
                           <span className="inline-flex items-center space-x-1 font-semibold text-slate-700">
                             {alert.type === 'TEMPERATURA' ? (
-                              <Thermometer className="w-3.5 h-3.5 text-rose-500" />
+                              <Thermometer className="w-3.5 h-3.5 text-rose-500" aria-hidden="true" />
                             ) : (
-                              <Droplets className="w-3.5 h-3.5 text-sky-500" />
+                              <Droplets className="w-3.5 h-3.5 text-sky-500" aria-hidden="true" />
                             )}
                             <span>{alert.type || 'Ambiente'}</span>
                           </span>
@@ -430,11 +468,12 @@ export const IoTPage: React.FC = () => {
                           {isOpen ? (
                             canOperate ? (
                               <button
+                                type="button"
                                 onClick={() => handleResolveAlert(alert.id)}
                                 disabled={resolvingId === alert.id}
                                 className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 border border-slate-900 rounded-sm shadow-none transition-colors disabled:opacity-50"
                               >
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <Check className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
                                 <span>{resolvingId === alert.id ? 'Resolvendo...' : 'Resolver'}</span>
                               </button>
                             ) : (
@@ -459,12 +498,12 @@ export const IoTPage: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 uppercase font-semibold text-[10px] tracking-wider">
                 <tr>
-                  <th className="px-3 py-2.5">Data / Hora</th>
-                  <th className="px-3 py-2.5">Área Monitorada</th>
-                  <th className="px-3 py-2.5 text-center">Temperatura</th>
-                  <th className="px-3 py-2.5 text-center">Umidade Relativa</th>
-                  <th className="px-3 py-2.5 text-center">Condição</th>
-                  <th className="px-3 py-2.5 text-right">Origem</th>
+                  <th scope="col" className="px-3 py-2.5">Data / Hora</th>
+                  <th scope="col" className="px-3 py-2.5">Área Monitorada</th>
+                  <th scope="col" className="px-3 py-2.5 text-center">Temperatura</th>
+                  <th scope="col" className="px-3 py-2.5 text-center">Umidade Relativa</th>
+                  <th scope="col" className="px-3 py-2.5 text-center">Condição</th>
+                  <th scope="col" className="px-3 py-2.5 text-right">Origem</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -481,7 +520,9 @@ export const IoTPage: React.FC = () => {
                         <td className="px-3 py-2.5 text-slate-500 font-mono text-[11px]">
                           {new Date(reading.timestamp).toLocaleString('pt-BR')}
                         </td>
-                        <td className="px-3 py-2.5 font-bold text-slate-800">{reading.area}</td>
+                        <td className="px-3 py-2.5 font-bold text-slate-800">
+                          {formatAreaLabel(reading.area)}
+                        </td>
                         <td className="px-3 py-2.5 text-center font-mono font-bold text-slate-900">
                           {reading.temperature.toFixed(1).replace('.', ',')} °C
                         </td>

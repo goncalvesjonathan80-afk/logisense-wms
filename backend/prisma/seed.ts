@@ -4,433 +4,517 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Iniciando seed do LOGISENSE WMS...');
+  console.log('🔍 Verificando estado do banco de dados SQLite local...');
 
-  // Limpar dados existentes em ordem reversa de dependência
-  await prisma.auditLog.deleteMany();
-  await prisma.alert.deleteMany();
-  await prisma.ioTReading.deleteMany();
-  await prisma.orderItem.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.stockMovement.deleteMany();
-  await prisma.product.deleteMany();
-  await prisma.location.deleteMany();
-  await prisma.category.deleteMany();
-  await prisma.user.deleteMany();
+  const existingUsers = await prisma.user.count();
+  if (existingUsers > 0 && process.env.FORCE_SEED !== 'true') {
+    console.log(
+      `✅ Banco de dados já possui dados (${existingUsers} usuários encontrados). Seed ignorado por segurança para preservar os dados existentes.`
+    );
+    console.log('💡 Caso deseje forçar a recriação em um banco de testes vazio, defina FORCE_SEED=true.');
+    return;
+  }
 
-  console.log('🧹 Banco de dados limpo.');
+  console.log('🌱 Iniciando seed para novo ambiente do LOGISENSE WMS (Campinas - SP)...');
 
-  // 1. Criar Usuários com hash de senha
-  const passwordAdmin = await bcrypt.hash('admin123', 10);
-  const passwordGerente = await bcrypt.hash('gerente123', 10);
-  const passwordOperador = await bcrypt.hash('operador123', 10);
-  const passwordConsulta = await bcrypt.hash('consulta123', 10);
+  if (process.env.FORCE_SEED === 'true') {
+    await prisma.auditLog.deleteMany();
+    await prisma.alert.deleteMany();
+    await prisma.ioTReading.deleteMany();
+    await prisma.orderItem.deleteMany();
+    await prisma.order.deleteMany();
+    await prisma.receivingItem.deleteMany();
+    await prisma.receiving.deleteMany();
+    await prisma.stockMovement.deleteMany();
+    await prisma.product.deleteMany();
+    await prisma.category.deleteMany();
+    await prisma.location.deleteMany();
+    await prisma.user.deleteMany();
+  }
+
+  // 1. Criar Usuários (4 perfis RBAC)
+  const adminHash = await bcrypt.hash('admin123', 10);
+  const gerenteHash = await bcrypt.hash('gerente123', 10);
+  const operadorHash = await bcrypt.hash('operador123', 10);
+  const consultaHash = await bcrypt.hash('consulta123', 10);
 
   const admin = await prisma.user.create({
     data: {
-      name: 'Carlos Mendes (Admin)',
+      name: 'Carlos Eduardo (Admin TI)',
       email: 'admin@logisense.com',
-      passwordHash: passwordAdmin,
+      passwordHash: adminHash,
       role: 'ADMIN',
-      department: 'TI & Governança',
-      active: true,
+      department: 'Tecnologia da Informação (TI)',
     },
   });
 
   const gerente = await prisma.user.create({
     data: {
-      name: 'Mariana Duarte (Gerente)',
+      name: 'Fernanda Lima (Gerente)',
       email: 'gerente@logisense.com',
-      passwordHash: passwordGerente,
+      passwordHash: gerenteHash,
       role: 'GERENTE',
-      department: 'Operações Logísticas',
-      active: true,
+      department: 'Administração Logística',
     },
   });
 
   const operador = await prisma.user.create({
     data: {
-      name: 'João Silva (Operador)',
+      name: 'Marcos Oliveira (Operador)',
       email: 'operador@logisense.com',
-      passwordHash: passwordOperador,
+      passwordHash: operadorHash,
       role: 'OPERADOR',
-      department: 'Armazém & Expedição',
-      active: true,
+      department: 'Estoque e Expedição',
     },
   });
 
-  const consulta = await prisma.user.create({
+  await prisma.user.create({
     data: {
-      name: 'Ana Paula (Consulta)',
+      name: 'Beatriz Santos (Consulta)',
       email: 'consulta@logisense.com',
-      passwordHash: passwordConsulta,
+      passwordHash: consultaHash,
       role: 'CONSULTA',
-      department: 'Auditoria Acadêmica',
-      active: true,
+      department: 'Atendimento / Comercial',
     },
   });
 
-  console.log('✅ Usuários criados (Admin, Gerente, Operador, Consulta).');
+  console.log('✅ Usuários criados (4 perfis RBAC)');
 
-  // 2. Categorias
+  // 2. Criar Categorias
   const catEmbalagens = await prisma.category.create({
-    data: { name: 'Embalagens & Acondicionamento', description: 'Caixas de papelão, fitas, filmes e paletes' },
+    data: { name: 'Embalagens & Insumos', description: 'Caixas, filmes stretch, fitas e etiquetas' },
   });
-  const catMateriasPrimas = await prisma.category.create({
-    data: { name: 'Matérias-Primas', description: 'Insumos industriais e componentes base' },
+  const catEletro = await prisma.category.create({
+    data: { name: 'Eletrônicos & Sensores', description: 'Coletores, sensores RFID e dispositivos IoT' },
   });
-  const catEletronicos = await prisma.category.create({
-    data: { name: 'Eletrônicos & IoT', description: 'Sensores, coletores e dispositivos de rede' },
+  const catEpi = await prisma.category.create({
+    data: { name: 'EPI & Segurança', description: 'Equipamentos de proteção individual para armazém' },
   });
-  const catQuimicos = await prisma.category.create({
-    data: { name: 'Suprimentos & Manutenção', description: 'Materiais de proteção e suprimentos operacionais' },
-  });
-
-  console.log('✅ Categorias criadas.');
-
-  // 3. Localizações do armazém (1.500 m² - Corredores A e B)
-  const locA0101 = await prisma.location.create({
-    data: { code: 'A-01-01', aisle: 'A', rack: '01', shelf: '01', capacity: 150, status: 'OCCUPIED' },
-  });
-  const locA0102 = await prisma.location.create({
-    data: { code: 'A-01-02', aisle: 'A', rack: '01', shelf: '02', capacity: 120, status: 'OCCUPIED' },
-  });
-  const locA0103 = await prisma.location.create({
-    data: { code: 'A-01-03', aisle: 'A', rack: '01', shelf: '03', capacity: 100, status: 'AVAILABLE' },
-  });
-  const locA0201 = await prisma.location.create({
-    data: { code: 'A-02-01', aisle: 'A', rack: '02', shelf: '01', capacity: 200, status: 'OCCUPIED' },
-  });
-  const locA0202 = await prisma.location.create({
-    data: { code: 'A-02-02', aisle: 'A', rack: '02', shelf: '02', capacity: 80, status: 'OCCUPIED' },
-  });
-  const locB0101 = await prisma.location.create({
-    data: { code: 'B-01-01', aisle: 'B', rack: '01', shelf: '01', capacity: 50, status: 'OCCUPIED' },
-  });
-  const locB0102 = await prisma.location.create({
-    data: { code: 'B-01-02', aisle: 'B', rack: '01', shelf: '02', capacity: 50, status: 'AVAILABLE' },
-  });
-  const locB0201 = await prisma.location.create({
-    data: { code: 'B-02-01', aisle: 'B', rack: '02', shelf: '01', capacity: 300, status: 'OCCUPIED' },
+  const catPecas = await prisma.category.create({
+    data: { name: 'Peças & Componentes', description: 'Componentes industriais e reposição de empilhadeiras' },
   });
 
-  console.log('✅ Localizações de armazém cadastradas.');
+  console.log('✅ Categorias criadas');
 
-  // 4. Produtos
-  const prodPalete = await prisma.product.create({
+  // 3. Criar Localizações do Armazém (Endereçamento Físico)
+  const locA1 = await prisma.location.create({
+    data: { code: 'A-01-01', aisle: 'A', rack: '01', shelf: '01', capacity: 200, status: 'OCCUPIED' },
+  });
+  const locA2 = await prisma.location.create({
+    data: { code: 'A-01-02', aisle: 'A', rack: '01', shelf: '02', capacity: 150, status: 'OCCUPIED' },
+  });
+  const locA3 = await prisma.location.create({
+    data: { code: 'A-02-01', aisle: 'A', rack: '02', shelf: '01', capacity: 150, status: 'AVAILABLE' },
+  });
+  const locB1 = await prisma.location.create({
+    data: { code: 'B-01-01', aisle: 'B', rack: '01', shelf: '01', capacity: 300, status: 'OCCUPIED' },
+  });
+  const locB2 = await prisma.location.create({
+    data: { code: 'B-01-02', aisle: 'B', rack: '01', shelf: '02', capacity: 300, status: 'OCCUPIED' },
+  });
+  const locC1 = await prisma.location.create({
+    data: { code: 'C-01-01', aisle: 'C', rack: '01', shelf: '01', capacity: 100, status: 'OCCUPIED' },
+  });
+  await prisma.location.create({
+    data: { code: 'C-01-02', aisle: 'C', rack: '01', shelf: '02', capacity: 100, status: 'AVAILABLE' },
+  });
+  await prisma.location.create({
+    data: { code: 'D-01-01', aisle: 'D', rack: '01', shelf: '01', capacity: 500, status: 'MAINTENANCE' },
+  });
+
+  console.log('✅ Localizações criadas');
+
+  // 4. Criar Produtos
+  const p1 = await prisma.product.create({
     data: {
-      sku: 'EMB-PAL-001',
-      name: 'Palete PBR Madeira Tratada 1000x1200mm',
-      description: 'Palete padrão brasileiro homologado para estantes porta-paletes',
+      sku: 'EMB-CX-001',
+      name: 'Caixa de Papelão Ondulado Triplo 60x40x40',
+      description: 'Caixa reforçada para expedição de cargas fracionadas',
       categoryId: catEmbalagens.id,
       unit: 'UN',
-      weight: 22.5,
-      dimensions: '120x100x14 cm',
-      minStock: 30,
-      currentStock: 85,
-      locationId: locA0101.id,
-      status: 'ACTIVE',
-    },
-  });
-
-  const prodCaixa = await prisma.product.create({
-    data: {
-      sku: 'EMB-CX-040',
-      name: 'Caixa Papelão Kraft Triplex 40x30x25cm',
-      description: 'Caixa resistente para expedição de mercadorias pesadas',
-      categoryId: catEmbalagens.id,
-      unit: 'CX',
-      weight: 0.45,
-      dimensions: '40x30x25 cm',
+      weight: 0.85,
+      dimensions: '60x40x40 cm',
       minStock: 100,
-      currentStock: 340,
-      locationId: locA0102.id,
+      currentStock: 450,
+      locationId: locA1.id,
       status: 'ACTIVE',
     },
   });
 
-  const prodStretch = await prisma.product.create({
+  const p2 = await prisma.product.create({
     data: {
-      sku: 'EMB-STR-500',
-      name: 'Bobina Filme Stretch Manual 500mm x 25 micras',
-      description: 'Filme para paletização e consolidação de cargas',
+      sku: 'EMB-ST-002',
+      name: 'Bobina Filme Stretch 500mm x 25 micras',
+      description: 'Filme polietileno para unitização de paletes PBR',
       categoryId: catEmbalagens.id,
-      unit: 'UN',
+      unit: 'RL',
       weight: 3.2,
-      dimensions: '50x12x12 cm',
-      minStock: 25,
-      currentStock: 64,
-      locationId: locA0201.id,
-      status: 'ACTIVE',
-    },
-  });
-
-  const prodFita = await prisma.product.create({
-    data: {
-      sku: 'EMB-FIT-048',
-      name: 'Fita Adesiva Hot Melt Transparente 48mm x 100m',
-      description: 'Fita adesiva de alta aderência para fechamento de caixas',
-      categoryId: catEmbalagens.id,
-      unit: 'UN',
-      weight: 0.22,
-      dimensions: '12x12x4.8 cm',
-      minStock: 50,
-      currentStock: 12, // Estoque baixo para gerar alerta!
-      locationId: locA0202.id,
-      status: 'ACTIVE',
-    },
-  });
-
-  const prodSensor = await prisma.product.create({
-    data: {
-      sku: 'IOT-SEN-002',
-      name: 'Sensor de Temperatura e Umidade IoT LoRaWAN',
-      description: 'Sensor industrial alimentado por bateria com alcance de até 3 km',
-      categoryId: catEletronicos.id,
-      unit: 'UN',
-      weight: 0.18,
-      dimensions: '10x7x3 cm',
-      minStock: 5,
+      dimensions: '50x15x15 cm',
+      minStock: 30,
       currentStock: 18,
-      locationId: locB0101.id,
+      locationId: locA2.id,
       status: 'ACTIVE',
     },
   });
 
-  const prodLuva = await prisma.product.create({
+  const p3 = await prisma.product.create({
     data: {
-      sku: 'SUP-LUV-009',
-      name: 'Luva de Proteção Nitrílica Antiderrapante (Tamanho G)',
-      description: 'EPI para operadores no manuseio de caixas e carga',
-      categoryId: catQuimicos.id,
-      unit: 'PC',
+      sku: 'IOT-SN-003',
+      name: 'Sensor Ambiental Temp/Umidade ZigBee v3',
+      description: 'Sensor sem fio de telemetria contínua para câmaras e corredores',
+      categoryId: catEletro.id,
+      unit: 'UN',
+      weight: 0.12,
+      dimensions: '8x8x3 cm',
+      minStock: 15,
+      currentStock: 42,
+      locationId: locB1.id,
+      status: 'ACTIVE',
+    },
+  });
+
+  const p4 = await prisma.product.create({
+    data: {
+      sku: 'IOT-RF-004',
+      name: 'Etiqueta Passiva RFID UHF Adesiva (Rolo 500 un)',
+      description: 'Rastreabilidade automática de lotes em portais de doca',
+      categoryId: catEletro.id,
+      unit: 'RL',
+      weight: 0.6,
+      dimensions: '20x20x8 cm',
+      minStock: 20,
+      currentStock: 8,
+      locationId: locB2.id,
+      status: 'ACTIVE',
+    },
+  });
+
+  const p5 = await prisma.product.create({
+    data: {
+      sku: 'EPI-CP-005',
+      name: 'Capacete de Segurança Aba Frontal com Jugular',
+      description: 'EPI obrigatório para circulação nas áreas de porta-paletes',
+      categoryId: catEpi.id,
+      unit: 'UN',
+      weight: 0.35,
+      dimensions: '28x22x16 cm',
+      minStock: 25,
+      currentStock: 60,
+      locationId: locC1.id,
+      status: 'ACTIVE',
+    },
+  });
+
+  const p6 = await prisma.product.create({
+    data: {
+      sku: 'EPI-LV-006',
+      name: 'Luva de Proteção Tricotada Pigmentada',
+      description: 'Proteção mecânica para manuseio de caixas e separação (picking)',
+      categoryId: catEpi.id,
+      unit: 'PAR',
       weight: 0.08,
       dimensions: '25x12x2 cm',
-      minStock: 40,
+      minStock: 50,
       currentStock: 120,
-      locationId: locB0201.id,
+      locationId: locC1.id,
       status: 'ACTIVE',
     },
   });
 
-  console.log('✅ Produtos cadastrados.');
+  const p7 = await prisma.product.create({
+    data: {
+      sku: 'PEC-RD-007',
+      name: 'Roda de Poliuretano para Transpaleteira 80x70',
+      description: 'Roda de carga de alta resistência à abrasão',
+      categoryId: catPecas.id,
+      unit: 'UN',
+      weight: 1.4,
+      dimensions: '8x8x7 cm',
+      minStock: 12,
+      currentStock: 6,
+      locationId: locA3.id,
+      status: 'ACTIVE',
+    },
+  });
 
-  // 5. Histórico de Movimentações (Entradas e Saídas ao longo dos últimos dias)
+  const p8 = await prisma.product.create({
+    data: {
+      sku: 'IOT-CL-008',
+      name: 'Coletor de Dados Óptico 2D Industrial Android',
+      description: 'Terminal portátil robusto IP65 para conferência e picking',
+      categoryId: catEletro.id,
+      unit: 'UN',
+      weight: 0.45,
+      dimensions: '16x8x3 cm',
+      minStock: 10,
+      currentStock: 14,
+      locationId: locB1.id,
+      status: 'ACTIVE',
+    },
+  });
+
+  console.log('✅ Produtos criados');
+
+  // 5. Criar Recebimento Inicial
   const now = new Date();
-  const d1 = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000);
-  const d2 = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-  const d3 = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
-  const d4 = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
+  const daysAgo = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
+  await prisma.receiving.create({
+    data: {
+      receivingNumber: 'REC-2026-0001',
+      supplier: 'Klabin Embalagens Industriais S.A.',
+      status: 'STORED',
+      notes: 'Recebimento conferido e armazenado no corredor A',
+      userId: operador.id,
+      checkedAt: daysAgo(4),
+      checkedBy: operador.name,
+      storedAt: daysAgo(4),
+      storedBy: operador.name,
+      items: {
+        create: [
+          {
+            productId: p1.id,
+            expectedQuantity: 150,
+            receivedQuantity: 150,
+            locationId: locA1.id,
+          },
+        ],
+      },
+    },
+  });
+
+  // 6. Criar Histórico de Movimentações
   await prisma.stockMovement.createMany({
     data: [
       {
-        productId: prodPalete.id,
+        productId: p1.id,
         type: 'ENTRY',
-        quantity: 50,
+        quantity: 150,
         userId: operador.id,
-        origin: 'Madeireira Campineira Ltda',
+        origin: 'Fornecedor Klabin NF-8921',
         destination: 'A-01-01',
-        notes: 'Recebimento de lote com NF 45891',
-        createdAt: d1,
+        notes: 'Entrada de caixas triplas para operação semanal',
+        createdAt: daysAgo(5),
       },
       {
-        productId: prodCaixa.id,
+        productId: p3.id,
         type: 'ENTRY',
-        quantity: 200,
-        userId: operador.id,
-        origin: 'Klabin Embalagens',
-        destination: 'A-01-02',
-        notes: 'Reposição programada',
-        createdAt: d2,
+        quantity: 20,
+        userId: gerente.id,
+        origin: 'TechIoT Campinas NF-1042',
+        destination: 'B-01-01',
+        notes: 'Reposição de sensores ZigBee para corredor B',
+        createdAt: daysAgo(4),
       },
       {
-        productId: prodCaixa.id,
-        type: 'EXIT',
-        quantity: 60,
-        userId: operador.id,
-        origin: 'A-01-02',
-        destination: 'Expedição - Pedido PED-2026-004',
-        notes: 'Separação de carga',
-        createdAt: d3,
-      },
-      {
-        productId: prodStretch.id,
-        type: 'ENTRY',
-        quantity: 30,
-        userId: operador.id,
-        origin: 'PlasticFlex Indústria',
-        destination: 'A-02-01',
-        notes: 'Recebimento NF 8921',
-        createdAt: d3,
-      },
-      {
-        productId: prodStretch.id,
-        type: 'EXIT',
-        quantity: 10,
-        userId: operador.id,
-        origin: 'A-02-01',
-        destination: 'Linha de Paletização',
-        notes: 'Consumo interno operacional',
-        createdAt: d4,
-      },
-      {
-        productId: prodPalete.id,
+        productId: p2.id,
         type: 'EXIT',
         quantity: 15,
         userId: operador.id,
-        origin: 'A-01-01',
-        destination: 'Expedição Cliente TechLog',
-        notes: 'Carregamento doca 2',
-        createdAt: now,
+        origin: 'A-01-02',
+        destination: 'Doca de Expedição 02',
+        notes: 'Consumo interno na paletização de pedidos',
+        createdAt: daysAgo(3),
       },
       {
-        productId: prodLuva.id,
+        productId: p6.id,
         type: 'ENTRY',
         quantity: 50,
-        userId: gerente.id,
-        origin: 'Fornecedor EPI Campinas',
-        destination: 'B-02-01',
-        notes: 'Suprimento almoxarifado',
+        userId: operador.id,
+        origin: 'Protege EPI Ltda NF-3310',
+        destination: 'C-01-01',
+        notes: 'Lote semestral de luvas pigmentadas',
+        createdAt: daysAgo(2),
+      },
+      {
+        productId: p4.id,
+        type: 'EXIT',
+        quantity: 12,
+        userId: operador.id,
+        origin: 'B-01-02',
+        destination: 'Pedido #PED-2026-002',
+        notes: 'Separação para cliente Automação Paulista',
+        createdAt: daysAgo(1),
+      },
+      {
+        productId: p1.id,
+        type: 'EXIT',
+        quantity: 50,
+        userId: operador.id,
+        origin: 'A-01-01',
+        destination: 'Pedido #PED-2026-001',
+        notes: 'Expedição concluída na Doca 01',
         createdAt: now,
       },
     ],
   });
 
-  console.log('✅ Movimentações de estoque registradas.');
+  console.log('✅ Movimentações criadas');
 
-  // 6. Pedidos
-  const order1 = await prisma.order.create({
+  // 7. Criar Pedidos Logísticos
+  await prisma.order.create({
     data: {
       orderNumber: 'PED-2026-001',
-      customer: 'TechLog Soluções Campinas',
-      status: 'PENDING',
-      priority: 'HIGH',
-      notes: 'Carregamento prioritário na doca 1',
+      customerName: 'Distribuidora Bandeirantes Campinas',
+      customer: 'Distribuidora Bandeirantes Campinas',
+      status: 'SHIPPED',
+      notes: 'Entrega concluída via transportadora Expresso Jundiaí',
+      userId: operador.id,
+      pickedAt: daysAgo(2),
+      pickedBy: operador.name,
+      shippedAt: daysAgo(1),
+      shippedBy: operador.name,
+      items: {
+        create: [
+          {
+            productId: p1.id,
+            requestedQuantity: 50,
+            pickedQuantity: 50,
+            locationId: locA1.id,
+          },
+        ],
+      },
     },
   });
 
-  await prisma.orderItem.createMany({
-    data: [
-      { orderId: order1.id, productId: prodPalete.id, quantity: 10, price: 65.0 },
-      { orderId: order1.id, productId: prodCaixa.id, quantity: 50, price: 4.8 },
-    ],
-  });
-
-  const order2 = await prisma.order.create({
+  await prisma.order.create({
     data: {
       orderNumber: 'PED-2026-002',
-      customer: 'Distribuidora Metropolitana SP',
+      customerName: 'Automação Industrial Paulista Ltda',
+      customer: 'Automação Industrial Paulista Ltda',
       status: 'PICKING',
-      priority: 'MEDIUM',
-      notes: 'Coleta agendada para 16:00',
+      notes: 'Prioridade alta - Aguardando conferência final na doca',
+      userId: gerente.id,
+      items: {
+        create: [
+          {
+            productId: p3.id,
+            requestedQuantity: 10,
+            pickedQuantity: 10,
+            locationId: locB1.id,
+          },
+          {
+            productId: p8.id,
+            requestedQuantity: 4,
+            pickedQuantity: 2,
+            locationId: locB1.id,
+          },
+        ],
+      },
     },
   });
 
-  await prisma.orderItem.create({
-    data: { orderId: order2.id, productId: prodStretch.id, quantity: 8, price: 42.0 },
-  });
-
-  const order3 = await prisma.order.create({
+  await prisma.order.create({
     data: {
       orderNumber: 'PED-2026-003',
-      customer: 'Sigma Indústria & Comércio',
-      status: 'READY',
-      priority: 'LOW',
-      notes: 'Aguardando transportadora',
+      customerName: ' Metalúrgica Anhanguera S.A.',
+      customer: 'Metalúrgica Anhanguera S.A.',
+      status: 'PENDING',
+      notes: 'Pedido programado para expedição no próximo turno',
+      userId: gerente.id,
+      items: {
+        create: [
+          {
+            productId: p5.id,
+            requestedQuantity: 15,
+            pickedQuantity: 0,
+            locationId: locC1.id,
+          },
+          {
+            productId: p6.id,
+            requestedQuantity: 30,
+            pickedQuantity: 0,
+            locationId: locC1.id,
+          },
+        ],
+      },
     },
   });
 
-  const order4 = await prisma.order.create({
+  await prisma.order.create({
     data: {
       orderNumber: 'PED-2026-004',
-      customer: 'Varejo Santos Logística',
-      status: 'SHIPPED',
-      priority: 'MEDIUM',
-      notes: 'Despachado via transportadora parceira',
+      customerName: 'Centro Logístico Viracopos Hub',
+      customer: 'Centro Logístico Viracopos Hub',
+      status: 'PICKED',
+      notes: 'Conferido e pronto para despacho na doca 03',
+      userId: operador.id,
+      pickedAt: now,
+      pickedBy: operador.name,
+      items: {
+        create: [
+          {
+            productId: p1.id,
+            requestedQuantity: 25,
+            pickedQuantity: 25,
+            locationId: locA1.id,
+          },
+        ],
+      },
     },
   });
 
-  console.log('✅ Pedidos e itens cadastrados.');
+  console.log('✅ Pedidos criados');
 
-  // 7. Leituras IoT Simuladas (Áreas A, B e C)
+  // 8. Criar Leituras IoT (Simuladas para as Áreas A, B e C)
   await prisma.ioTReading.createMany({
     data: [
-      {
-        area: 'Área A (Armazenagem Seca)',
-        temperature: 23.4,
-        humidity: 54.0,
-        status: 'NORMAL',
-        isSimulated: true,
-      },
-      {
-        area: 'Área B (Almoxarifado & Químicos)',
-        temperature: 27.8,
-        humidity: 61.0,
-        status: 'WARNING',
-        isSimulated: true,
-      },
-      {
-        area: 'Área C (Expedição & Docas)',
-        temperature: 22.1,
-        humidity: 50.0,
-        status: 'NORMAL',
-        isSimulated: true,
-      },
+      { area: 'Área A', temperature: 22.4, humidity: 54.0, status: 'NORMAL', isSimulated: true },
+      { area: 'Área B', temperature: 27.8, humidity: 63.5, status: 'WARNING', isSimulated: true },
+      { area: 'Área C', temperature: 21.1, humidity: 49.2, status: 'NORMAL', isSimulated: true },
     ],
   });
 
-  console.log('✅ Dados simulados de IoT registrados.');
-
-  // 8. Alertas
+  // 9. Criar Alertas Ativos
   await prisma.alert.createMany({
     data: [
       {
-        title: 'Estoque Baixo',
-        message: 'O produto "Fita Adesiva Hot Melt 48mm" atingiu 12 unidades (mínimo: 50).',
+        title: 'Estoque Abaixo do Mínimo: Etiqueta RFID UHF',
+        message: 'O SKU IOT-RF-004 atingiu 8 RL (mínimo: 20 RL). Providenciar reposição.',
+        severity: 'CRITICAL',
+        module: 'STOCK',
+        area: 'Área B',
+        type: 'ESTOQUE_MINIMO',
+        status: 'OPEN',
+        resolved: false,
+      },
+      {
+        title: 'Estoque Baixo: Bobina Filme Stretch',
+        message: 'O SKU EMB-ST-002 está com 18 RL (mínimo: 30 RL).',
         severity: 'HIGH',
         module: 'STOCK',
+        area: 'Área A',
+        type: 'ESTOQUE_MINIMO',
+        status: 'OPEN',
         resolved: false,
       },
       {
-        title: 'Temperatura Elevada - Área B',
-        message: 'Área B registrou 27,8 °C (limite operacional recomendado: 26,0 °C).',
-        severity: 'MEDIUM',
+        title: 'Temperatura acima do limite na Área B',
+        message: 'Temperatura detectada: 31.4 °C (Limite: 30.0 °C)',
+        severity: 'HIGH',
         module: 'IOT',
-        resolved: false,
-      },
-      {
-        title: 'Pedido com Prioridade Alta',
-        message: 'Pedido PED-2026-001 aguardando início de separação.',
-        severity: 'LOW',
-        module: 'ORDER',
+        area: 'Área B',
+        type: 'TEMPERATURA',
+        detectedValue: 31.4,
+        limitValue: 30.0,
+        status: 'OPEN',
         resolved: false,
       },
     ],
   });
 
-  console.log('✅ Alertas operacionais registrados.');
-
-  // 9. Logs de Auditoria
-  await prisma.auditLog.createMany({
-    data: [
-      {
-        userId: admin.id,
-        action: 'SYSTEM_INIT',
-        module: 'AUTH',
-        description: 'Inicialização do banco de dados e carga de dados de demonstração (PIM III)',
-      },
-      {
-        userId: gerente.id,
-        action: 'STOCK_ENTRY',
-        module: 'STOCK',
-        description: 'Registro de entrada inicial de estoque para lote de embalagens',
-      },
-    ],
+  // 10. Criar Logs de Auditoria
+  await prisma.auditLog.create({
+    data: {
+      userId: admin.id,
+      action: 'SYSTEM_SEED',
+      module: 'SYSTEM',
+      description: 'Inicialização do banco de dados SQLite local do LOGISENSE WMS concluída',
+      ipAddress: '127.0.0.1',
+    },
   });
 
-  console.log('✅ Logs de auditoria inicializados.');
-  console.log('🎉 Seed do LOGISENSE WMS concluído com sucesso!');
+  console.log('🚀 Seed do LOGISENSE WMS concluído com sucesso!');
 }
 
 main()

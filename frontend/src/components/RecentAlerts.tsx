@@ -73,7 +73,7 @@ export const RecentAlerts: React.FC<RecentAlertsProps> = ({ alerts }) => {
                   </span>
                   {alert.area && (
                     <span className="text-[10px] font-semibold text-slate-600 bg-white px-1.5 py-0.2 rounded-sm border border-slate-200">
-                      {alert.area}
+                      {`Área ${String(alert.area).replace(/^(?:[aá]rea\s+)+/i, '').trim()}`}
                     </span>
                   )}
                   <span className="text-[10px] text-slate-400 ml-auto font-mono">

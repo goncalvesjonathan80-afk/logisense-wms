@@ -49,6 +49,7 @@ export const IoTSummaryCard: React.FC<IoTSummaryCardProps> = ({ readings }) => {
           </div>
         ) : (
           readings.map((reading) => {
+            const cleanArea = `Área ${String(reading.area || 'A').replace(/^(?:[aá]rea\s+)+/i, '').trim()}`;
             return (
               <div
                 key={reading.id}
@@ -56,7 +57,7 @@ export const IoTSummaryCard: React.FC<IoTSummaryCardProps> = ({ readings }) => {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-slate-800">
-                    {reading.area}
+                    {cleanArea}
                   </span>
                   <StatusBadge status={reading.status} />
                 </div>

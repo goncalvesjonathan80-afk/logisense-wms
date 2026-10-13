@@ -58,9 +58,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    // Tratamento de sessão: limpar credencial em caso de token expirado ou não autorizado
+    // Tratamento de sessão: limpar credencial e notificar contexto em caso de token expirado ou não autorizado
     if (response.status === 401 && endpoint !== '/auth/login') {
       removeAuthToken();
+      window.dispatchEvent(new Event('logisense:unauthorized'));
     }
     throw new Error(data.message || `Erro na requisição (${response.status})`);
   }

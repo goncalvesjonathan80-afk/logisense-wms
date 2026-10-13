@@ -42,11 +42,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       {/* Esquerda: Botão Menu Mobile & Breadcrumb de Navegação */}
       <div className="flex items-center gap-3">
         <button
+          type="button"
           onClick={onToggleSidebar}
           className="p-1.5 -ml-1 text-slate-600 rounded-md hover:bg-slate-100 lg:hidden"
           title="Alternar menu"
+          aria-label="Alternar menu lateral"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-5 h-5" aria-hidden="true" />
         </button>
 
         <nav aria-label="Navegação estruturada" className="flex items-center gap-1.5 text-xs">
@@ -57,12 +59,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           >
             LOGISENSE
           </Link>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
-          <span className="text-slate-500 font-medium hidden sm:inline">
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+          <span className="text-slate-600 font-medium hidden sm:inline">
             {currentRoute.category}
           </span>
-          <ChevronRight className="w-3.5 h-3.5 text-slate-300 hidden sm:inline" />
-          <span className="font-semibold text-slate-800">
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400 hidden sm:inline" aria-hidden="true" />
+          <span className="font-semibold text-slate-800" aria-current="page">
             {currentRoute.title}
           </span>
         </nav>
@@ -77,28 +79,33 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 {user.name}
               </div>
               <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] text-slate-600">
                   {user.department || 'Operações'}
                 </span>
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                  <Shield className="w-2.5 h-2.5 text-slate-500" />
+                  <Shield className="w-2.5 h-2.5 text-slate-600" aria-hidden="true" />
                   {ROLE_LABELS[user.role] || user.role}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-center w-7 h-7 rounded-sm bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-xs tracking-wider">
+            <div
+              aria-hidden="true"
+              className="flex items-center justify-center w-7 h-7 rounded-sm bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-xs tracking-wider"
+            >
               {user.name.charAt(0).toUpperCase()}
             </div>
 
-            <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
+            <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" aria-hidden="true" />
 
             <button
+              type="button"
               onClick={logout}
               title="Encerrar sessão"
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-md border border-slate-200 transition-colors"
+              aria-label="Encerrar sessão e sair do sistema"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 hover:text-rose-600 hover:bg-rose-50 rounded-md border border-slate-200 transition-colors"
             >
-              <LogOut className="w-3.5 h-3.5" />
+              <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">Sair</span>
             </button>
           </div>

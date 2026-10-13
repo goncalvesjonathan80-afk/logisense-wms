@@ -6,6 +6,37 @@
   body {
     @apply bg-slate-50 text-slate-800 antialiased font-sans;
   }
+
+  /* Acessibilidade WCAG 2.2 AA: Anel de foco visível para navegação via teclado */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid #0284c7;
+    outline-offset: 2px;
+  }
+}
+
+/* Link de salto para conteúdo principal (Skip Link WCAG 2.4.1) */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: 0.5rem;
+  z-index: 9999;
+  padding: 0.5rem 1rem;
+  background-color: #0f172a;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 0.25rem;
+  border: 2px solid #38bdf8;
+}
+
+.skip-to-content:focus {
+  left: 0.5rem;
 }
 
 /* Scrollbar estilizada */
@@ -25,4 +56,16 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.6);
+}
+
+/* Respeito à preferência de redução de movimento (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

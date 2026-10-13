@@ -14,16 +14,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Regras de RBAC por rota
+// Regras de RBAC por rota (alinhadas às permissões do backend)
 const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   '/dashboard': ['ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTA'],
-  
+
   // Operações
   '/operacoes/recebimento': ['ADMIN', 'GERENTE', 'OPERADOR'],
   '/operacoes/armazenagem': ['ADMIN', 'GERENTE', 'OPERADOR'],
   '/operacoes/pedidos': ['ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTA'],
   '/operacoes/picking': ['ADMIN', 'GERENTE', 'OPERADOR'],
   '/operacoes/expedicao': ['ADMIN', 'GERENTE', 'OPERADOR'],
+  '/operacoes/iot': ['ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTA'],
 
   // Estoque
   '/estoque/produtos': ['ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTA'],
@@ -35,7 +36,7 @@ const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   // Outros módulos
   '/pedidos': ['ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTA'],
   '/monitoramento': ['ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTA'],
-  '/relatorios': ['ADMIN', 'GERENTE', 'CONSULTA'],
+  '/relatorios': ['ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTA'],
   '/usuarios': ['ADMIN'],
   '/auditoria': ['ADMIN'],
   '/configuracoes': ['ADMIN'],
@@ -86,8 +87,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
+    // Sincronização imediata na mesma aba caso uma requisição retorne HTTP 401
+    const handleUnauthorized = () => {
+      removeAuthToken();
+      setUser(null);
+      setToken(null);
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('logisense:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('logisense:unauthorized', handleUnauthorized);
+    };
   }, []);
 
   const login = async (email: string, password: string) => {

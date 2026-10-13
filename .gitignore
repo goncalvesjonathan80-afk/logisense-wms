@@ -1,40 +1,48 @@
 # Dependências
 node_modules/
+backend/node_modules/
+frontend/node_modules/
 
-# Builds e artefatos de compilação
+# Build e saídas compiladas
 dist/
 build/
-.vite/
-.turbo/
-.cache/
+backend/dist/
+frontend/dist/
+*.tsbuildinfo
 
-# Variáveis de ambiente e segredos locais (somente .env.example é versionado)
+# Variáveis de ambiente e segredos (NUNCA versionar)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 backend/.env
+backend/.env.*
+!backend/.env.example
 frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
-# Banco de dados local SQLite e backups (preservados localmente, nunca versionados)
+# Bancos de dados SQLite locais, backups e snapshots (NUNCA versionar)
 *.db
 *.db-journal
-*.db.bak*
-*.db.backup*
-dev.db
+*.db-wal
+*.db-shm
+*.db.*
+*.sqlite
+*.sqlite3
 *.bak
-database_snapshot.json
+*.backup*
+*snapshot*.json
+backend/prisma/*.db
+backend/prisma/*.db-*
+backend/prisma/*.db.*
+backend/prisma/*.bak
+backend/prisma/*.backup*
 
-# Logs operacionais e depuração
+# Logs e arquivos temporários de sistema operacional
 logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# Sistema operacional e IDE
 .DS_Store
 Thumbs.db
-.vscode/
-.idea/

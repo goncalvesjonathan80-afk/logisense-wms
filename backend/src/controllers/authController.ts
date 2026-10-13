@@ -5,12 +5,60 @@ import { prisma } from '../database/prisma';
 import { config } from '../config';
 import { AuthenticatedRequest, AuthUserPayload } from '../middlewares/auth';
 
+// Proteção contra força bruta no endpoint de login (Rate Limit em memória por IP + e-mail)
+interface LoginAttemptTracker {
+  failedAttempts: number;
+  firstFailedAt: number;
+}
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutos
+const MAX_FAILED_ATTEMPTS = 10;
+const loginAttemptsMap = new Map<string, LoginAttemptTracker>();
+
+function getRateLimitKey(req: Request, email?: string): string {
+  const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+  const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : 'unknown';
+  return `${ip}:${normalizedEmail}`;
+}
+
+function isRateLimited(key: string): boolean {
+  const entry = loginAttemptsMap.get(key);
+  if (!entry) return false;
+  if (Date.now() - entry.firstFailedAt > LOGIN_WINDOW_MS) {
+    loginAttemptsMap.delete(key);
+    return false;
+  }
+  return entry.failedAttempts >= MAX_FAILED_ATTEMPTS;
+}
+
+function recordFailedAttempt(key: string): void {
+  const now = Date.now();
+  const entry = loginAttemptsMap.get(key);
+  if (!entry || now - entry.firstFailedAt > LOGIN_WINDOW_MS) {
+    loginAttemptsMap.set(key, { failedAttempts: 1, firstFailedAt: now });
+  } else {
+    entry.failedAttempts += 1;
+  }
+}
+
+function clearFailedAttempts(key: string): void {
+  loginAttemptsMap.delete(key);
+}
+
 export async function login(req: Request, res: Response): Promise<void> {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       res.status(400).json({ message: 'E-mail e senha são obrigatórios' });
+      return;
+    }
+
+    const rateKey = getRateLimitKey(req, email);
+    if (isRateLimited(rateKey)) {
+      res.status(429).json({
+        message: 'Muitas tentativas de login malsucedidas. Aguarde alguns minutos antes de tentar novamente.',
+      });
       return;
     }
 
@@ -19,6 +67,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     });
 
     if (!user || !user.active) {
+      recordFailedAttempt(rateKey);
       res.status(401).json({ message: 'Credenciais inválidas ou usuário inativo' });
       return;
     }
@@ -26,9 +75,12 @@ export async function login(req: Request, res: Response): Promise<void> {
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
+      recordFailedAttempt(rateKey);
       res.status(401).json({ message: 'Credenciais inválidas ou usuário inativo' });
       return;
     }
+
+    clearFailedAttempts(rateKey);
 
     const payload: AuthUserPayload = {
       id: user.id,

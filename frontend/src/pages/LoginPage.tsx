@@ -29,6 +29,16 @@ export const LoginPage: React.FC = () => {
       .catch((err) => console.warn('Não foi possível carregar contas demo:', err));
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showForgotModal) {
+        setShowForgotModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showForgotModal]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -55,13 +65,13 @@ export const LoginPage: React.FC = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Marca LOGISENSE WMS */}
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-11 h-11 rounded-sm bg-sky-600 text-white shadow-none border border-sky-500 mb-3">
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-sm bg-sky-600 text-white shadow-none border border-sky-500 mb-3" aria-hidden="true">
             <Boxes className="w-5 h-5" />
           </div>
           <h1 className="text-lg font-bold tracking-tight text-white uppercase font-sans">
             LOGISENSE WMS
           </h1>
-          <p className="mt-0.5 text-xs text-slate-400">
+          <p className="mt-0.5 text-xs text-slate-300">
             Sistema Integrado de Gestão de Armazém
           </p>
         </div>
@@ -70,8 +80,11 @@ export const LoginPage: React.FC = () => {
         <div className="mt-6 bg-slate-800 border border-slate-700 rounded-md p-6 sm:p-7 shadow-none">
           <form className="space-y-4" onSubmit={handleSubmit}>
             {errorMessage && (
-              <div className="flex items-start gap-2.5 p-2.5 rounded-sm bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+              <div
+                role="alert"
+                className="flex items-start gap-2.5 p-2.5 rounded-sm bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" aria-hidden="true" />
                 <span>{errorMessage}</span>
               </div>
             )}
@@ -189,11 +202,16 @@ export const LoginPage: React.FC = () => {
 
       {/* Modal Informativo */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="forgot-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70"
+        >
           <div className="bg-slate-800 border border-slate-700 rounded-md max-w-sm w-full p-5 text-slate-200 shadow-lg">
             <div className="flex items-center gap-2 text-sky-400 mb-2">
-              <Info className="w-4 h-4" />
-              <h3 className="font-semibold text-white text-xs">
+              <Info className="w-4 h-4" aria-hidden="true" />
+              <h3 id="forgot-modal-title" className="font-semibold text-white text-xs">
                 Recuperação de Acesso
               </h3>
             </div>
@@ -201,6 +219,7 @@ export const LoginPage: React.FC = () => {
               Para recuperação de credenciais de operadores no ambiente local, utilize as contas funcionais de teste listadas no painel de demonstração (ex: <code>admin@logisense.com</code> com senha <code>admin123</code>).
             </p>
             <button
+              type="button"
               onClick={() => setShowForgotModal(false)}
               className="w-full py-1.5 bg-slate-700 hover:bg-slate-600 rounded-sm text-xs font-semibold text-white transition-colors"
             >

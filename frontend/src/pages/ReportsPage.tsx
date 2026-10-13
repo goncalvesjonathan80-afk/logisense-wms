@@ -134,27 +134,36 @@ export const ReportsPage: React.FC = () => {
         icon={FileBarChart}
         actions={
           <button
+            type="button"
             onClick={fetchReportData}
             disabled={loading}
             className="p-1.5 text-slate-600 bg-white hover:bg-slate-100 border border-slate-300 rounded-sm transition-colors"
             title="Atualizar relatório"
+            aria-label="Atualizar dados do relatório"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
           </button>
         }
       />
 
       {error && (
-        <div className="p-2.5 bg-rose-50 border border-rose-300 rounded-md text-xs text-rose-950 flex items-center space-x-2">
-          <AlertCircle className="w-4 h-4 text-rose-700 flex-shrink-0" />
+        <div role="alert" className="p-2.5 bg-rose-50 border border-rose-300 rounded-md text-xs text-rose-950 flex items-center space-x-2">
+          <AlertCircle className="w-4 h-4 text-rose-700 flex-shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </div>
       )}
 
       {/* Navegação entre os 4 Relatórios */}
       <div className="bg-white rounded-md border border-slate-200 shadow-none overflow-hidden">
-        <div className="flex border-b border-slate-200 overflow-x-auto text-xs font-semibold bg-slate-50">
+        <div
+          role="tablist"
+          aria-label="Categorias de relatórios"
+          className="flex border-b border-slate-200 overflow-x-auto text-xs font-semibold bg-slate-50"
+        >
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'stock'}
             onClick={() => setActiveTab('stock')}
             className={`px-4 py-2.5 border-b-2 flex items-center space-x-1.5 transition-colors ${
               activeTab === 'stock'
@@ -162,11 +171,14 @@ export const ReportsPage: React.FC = () => {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Boxes className="w-3.5 h-3.5" />
+            <Boxes className="w-3.5 h-3.5" aria-hidden="true" />
             <span>1. Posição de Estoque</span>
           </button>
 
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'movements'}
             onClick={() => setActiveTab('movements')}
             className={`px-4 py-2.5 border-b-2 flex items-center space-x-1.5 transition-colors ${
               activeTab === 'movements'
@@ -174,11 +186,14 @@ export const ReportsPage: React.FC = () => {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <ArrowRightLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>2. Movimentações</span>
           </button>
 
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'receivings'}
             onClick={() => setActiveTab('receivings')}
             className={`px-4 py-2.5 border-b-2 flex items-center space-x-1.5 transition-colors ${
               activeTab === 'receivings'
@@ -186,11 +201,14 @@ export const ReportsPage: React.FC = () => {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <ArrowDownLeft className="w-3.5 h-3.5" />
+            <ArrowDownLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>3. Recebimentos</span>
           </button>
 
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'orders'}
             onClick={() => setActiveTab('orders')}
             className={`px-4 py-2.5 border-b-2 flex items-center space-x-1.5 transition-colors ${
               activeTab === 'orders'
@@ -198,7 +216,7 @@ export const ReportsPage: React.FC = () => {
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Truck className="w-3.5 h-3.5" />
+            <Truck className="w-3.5 h-3.5" aria-hidden="true" />
             <span>4. Expedições & Pedidos</span>
           </button>
         </div>

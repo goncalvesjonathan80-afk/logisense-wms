@@ -6,27 +6,44 @@ import { prisma } from './database/prisma';
 
 const app = express();
 
-// Configuração de CORS segura via variáveis de ambiente
-const allowedOrigins = (config.corsOrigin || 'http://localhost:5173')
+// Desabilitar cabeçalho X-Powered-By por segurança
+app.disable('x-powered-by');
+
+// Cabeçalhos HTTP defensivos (Hardening OWASP)
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+});
+
+// Lista explícita de origens locais permitidas para o ambiente de desenvolvimento/homologação
+const DEFAULT_LOCAL_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+];
+
+const configuredOrigins = (config.corsOrigin || 'http://localhost:5173')
   .split(',')
   .map((o) => o.trim())
-  .filter(Boolean);
+  .filter((o) => Boolean(o) && o !== '*');
+
+const allowedOrigins = Array.from(new Set([...DEFAULT_LOCAL_ORIGINS, ...configuredOrigins]));
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Permitir requisições sem origin (testes internos, health check, curl) ou origens permitidas
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        allowedOrigins.some((allowed) => allowed === '*' || origin.startsWith(allowed)) ||
-        origin.startsWith('http://localhost:') ||
-        origin.startsWith('http://127.0.0.1:') ||
-        origin.endsWith('.vercel.app')
-      ) {
+      // Permitir requisições locais sem cabeçalho Origin (ex.: scripts de teste automatizados, health check)
+      // ou origens que constem exatamente na allowlist configurada
+      if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error('Origem não autorizada pelas políticas de segurança CORS'));
+        const corsError: any = new Error('Origem não autorizada pelas políticas de segurança CORS');
+        corsError.status = 403;
+        callback(corsError);
       }
     },
     credentials: true,
@@ -35,12 +52,13 @@ app.use(
   })
 );
 
-app.use(express.json());
+// Limite seguro de payload JSON contra abuso de memória (DoS)
+app.use(express.json({ limit: '256kb' }));
 
 // Rota de Health Check (Monitoramento de disponibilidade e integridade para PIM III)
 app.get('/api/health', async (_req, res) => {
   try {
-    // Verificação simples e segura do banco de dados
+    // Verificação simples e segura do banco de dados SQLite local
     await prisma.$queryRaw`SELECT 1`;
     res.json({
       status: 'ok',
@@ -74,7 +92,7 @@ app.use((req, res) => {
 // Middleware de Erro Global (Tratamento seguro sem exposição de stack trace ou dados internos)
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error capturado pelo middleware global:', err.message || err);
-  const status = err.status || 500;
+  const status = err.status || err.statusCode || 500;
   // Mensagem segura: nunca vazar detalhes de SQL, stack trace ou credenciais
   const safeMessage =
     status >= 500
@@ -88,7 +106,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 });
 
 const server = app.listen(config.port, '0.0.0.0', () => {
-  console.log(`🚀 LOGISENSE WMS Backend iniciado na porta ${config.port} (0.0.0.0)`);
+  console.log(`🚀 LOGISENSE WMS Backend iniciado na porta ${config.port} (SQLite Local)`);
   console.log(`📍 Health Check: http://localhost:${config.port}/api/health`);
 });
 

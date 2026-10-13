@@ -15,6 +15,36 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutos
 const MAX_FAILED_ATTEMPTS = 10;
 const loginAttemptsMap = new Map<string, LoginAttemptTracker>();
 
+// Rate Limiter exclusivo para demo-login (limita chamadas totais por IP para mitigar abuso e spam de AuditLog)
+interface DemoRateTracker {
+  count: number;
+  windowStart: number;
+}
+const DEMO_WINDOW_MS = 10 * 60 * 1000; // Janela de 10 minutos
+const DEMO_MAX_REQUESTS = 30; // Máximo de 30 logins demo por IP a cada 10 min
+const demoRequestsMap = new Map<string, DemoRateTracker>();
+
+function isDemoRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = demoRequestsMap.get(ip);
+  if (!entry) return false;
+  if (now - entry.windowStart > DEMO_WINDOW_MS) {
+    demoRequestsMap.delete(ip);
+    return false;
+  }
+  return entry.count >= DEMO_MAX_REQUESTS;
+}
+
+function recordDemoRequest(ip: string): void {
+  const now = Date.now();
+  const entry = demoRequestsMap.get(ip);
+  if (!entry || now - entry.windowStart > DEMO_WINDOW_MS) {
+    demoRequestsMap.set(ip, { count: 1, windowStart: now });
+  } else {
+    entry.count += 1;
+  }
+}
+
 function getRateLimitKey(req: Request, email?: string): string {
   const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
   const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : 'unknown';
@@ -155,11 +185,29 @@ export async function getMe(req: AuthenticatedRequest, res: Response): Promise<v
 
 export async function demoLogin(req: Request, res: Response): Promise<void> {
   try {
-    // Permitido em desenvolvimento local OU em produção exclusivamente se DEMO_MODE=true
-    const isAllowed = !config.isProduction || config.isDemoMode;
-    if (!isAllowed) {
+    // O login demonstrativo depende explicitamente de DEMO_MODE=true (em qualquer ambiente)
+    if (!config.isDemoMode) {
       res.status(403).json({
-        message: 'Acesso demonstrativo desativado neste ambiente por políticas de segurança.',
+        message: 'Acesso demonstrativo desativado neste ambiente. Para habilitar em demonstrações acadêmicas, configure DEMO_MODE=true.',
+      });
+      return;
+    }
+
+    const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
+
+    // 1. Limite geral de requisições por IP (mitigação contra abuso, força bruta e crescimento descontrolado do AuditLog)
+    if (isDemoRateLimited(clientIp)) {
+      res.status(429).json({
+        message: 'Limite de requisições demonstrativas excedido para este endereço IP. Aguarde alguns minutos antes de efetuar novos acessos.',
+      });
+      return;
+    }
+
+    // 2. Limite adicional por tentativas consecutivas com falha
+    const rateKey = `demo:${clientIp}`;
+    if (isRateLimited(rateKey)) {
+      res.status(429).json({
+        message: 'Muitas tentativas de acesso demonstrativo malsucedidas. Aguarde alguns instantes.',
       });
       return;
     }
@@ -168,16 +216,8 @@ export async function demoLogin(req: Request, res: Response): Promise<void> {
     const allowedRoles = ['ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTA'];
 
     if (!role || typeof role !== 'string' || !allowedRoles.includes(role.toUpperCase())) {
+      recordFailedAttempt(rateKey);
       res.status(400).json({ message: 'Perfil demonstrativo inválido.' });
-      return;
-    }
-
-    // Rate Limiting no demo login por IP
-    const rateKey = `demo:${req.ip || req.socket.remoteAddress || '127.0.0.1'}`;
-    if (isRateLimited(rateKey)) {
-      res.status(429).json({
-        message: 'Muitas tentativas de acesso demonstrativo. Aguarde alguns instantes.',
-      });
       return;
     }
 
@@ -192,6 +232,8 @@ export async function demoLogin(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Contabilizar chamada no contador de requisições totais válidas (evita abuso de geração de sessões e AuditLogs)
+    recordDemoRequest(clientIp);
     clearFailedAttempts(rateKey);
 
     const payload: AuthUserPayload = {
@@ -213,7 +255,7 @@ export async function demoLogin(req: Request, res: Response): Promise<void> {
         action: 'DEMO_LOGIN',
         module: 'AUTH',
         description: `Acesso demonstrativo acadêmico realizado no perfil ${user.role} (${user.name})`,
-        ipAddress: req.ip || '127.0.0.1',
+        ipAddress: clientIp,
       },
     });
 
@@ -235,8 +277,8 @@ export async function demoLogin(req: Request, res: Response): Promise<void> {
 
 export async function getDemoAccounts(_req: Request, res: Response): Promise<void> {
   try {
-    const isAllowed = !config.isProduction || config.isDemoMode;
-    if (!isAllowed) {
+    // A listagem de contas demonstrativas depende explicitamente de DEMO_MODE=true
+    if (!config.isDemoMode) {
       res.json({ accounts: [], demoMode: false });
       return;
     }

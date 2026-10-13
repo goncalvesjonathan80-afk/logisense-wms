@@ -136,28 +136,69 @@ function resolveAndValidateSqlitePath(databaseUrl) {
 }
 
 function verifyPersistentMount(volumeDir) {
-  // No ambiente Linux de produção, verificar se o caminho está montado
-  if (process.platform === 'linux' && fs.existsSync('/proc/mounts')) {
+  // Em produção, a persistência é um requisito inegociável (fail-closed)
+  const normalizedVolume = path.normalize(volumeDir);
+
+  // 1. Validar que o mount path seja exatamente o diretório persistente /data autorizado
+  if (normalizedVolume !== path.normalize('/data')) {
+    return {
+      mounted: false,
+      reason: `[FAIL-CLOSED] Em produção, o volume persistente deve ser montado exclusivamente em "/data". Caminho configurado: "${normalizedVolume}".`,
+    };
+  }
+
+  // 2. Validar a presença das variáveis de ambiente de volume e projeto injetadas pelo Railway
+  // O Railway injeta RAILWAY_VOLUME_MOUNT_PATH e/ou RAILWAY_VOLUME_NAME ao anexar um volume persistente.
+  const hasVolumeEnv = Boolean(
+    process.env.RAILWAY_VOLUME_MOUNT_PATH || process.env.RAILWAY_VOLUME_NAME
+  );
+  if (!hasVolumeEnv) {
+    return {
+      mounted: false,
+      reason: '[FAIL-CLOSED] Nenhuma variável de volume persistente do Railway detectada (RAILWAY_VOLUME_MOUNT_PATH ou RAILWAY_VOLUME_NAME). Anexe um Railway Volume ao serviço com mount path "/data".',
+    };
+  }
+
+  if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
+    const configuredMountPath = path.normalize(process.env.RAILWAY_VOLUME_MOUNT_PATH);
+    if (configuredMountPath !== normalizedVolume) {
+      return {
+        mounted: false,
+        reason: `[FAIL-CLOSED] Inconsistência de configuração: RAILWAY_VOLUME_MOUNT_PATH ("${configuredMountPath}") diverge do diretório de dados autorizado ("${normalizedVolume}").`,
+      };
+    }
+  }
+
+  // 3. Em ambientes Linux (containers Docker/Railway), verificar obrigatoriamente a montagem real em /proc/mounts
+  if (process.platform === 'linux') {
+    if (!fs.existsSync('/proc/mounts')) {
+      return {
+        mounted: false,
+        reason: '[FAIL-CLOSED] Arquivo do sistema /proc/mounts inacessível. Impossível validar montagem persistente real do volume.',
+      };
+    }
+
     try {
       const mounts = fs.readFileSync('/proc/mounts', 'utf8');
-      const normalizedVolume = path.normalize(volumeDir);
       const isMounted = mounts.split('\n').some((line) => {
         const parts = line.trim().split(/\s+/);
         return parts.length >= 2 && path.normalize(parts[1]) === normalizedVolume;
       });
+
       if (!isMounted) {
-        // Se RAILWAY_ENVIRONMENT existir e não estiver montado, emitir erro crítico
-        if (process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID) {
-          return {
-            mounted: false,
-            reason: `Volume persistente não encontrado na tabela de montagens do sistema (/proc/mounts) para "${normalizedVolume}". Verifique a configuração do Railway Volume.`,
-          };
-        }
+        return {
+          mounted: false,
+          reason: `[FAIL-CLOSED] O diretório "${normalizedVolume}" não é um ponto de montagem de volume real na tabela do sistema (/proc/mounts). Diretórios efêmeros internos do container são terminantemente rejeitados em produção.`,
+        };
       }
     } catch (err) {
-      console.warn('⚠️  Não foi possível verificar /proc/mounts:', err.message);
+      return {
+        mounted: false,
+        reason: `[FAIL-CLOSED] Erro ao ler /proc/mounts: ${err.message}. Bloqueio de segurança preventivo ativado.`,
+      };
     }
   }
+
   return { mounted: true };
 }
 
@@ -244,9 +285,10 @@ async function main() {
     console.log('   • Nenhum byte do arquivo existente foi alterado ou sobrescrito.');
 
     if (stat.size === 0) {
-      console.log('⚠️  Atenção: O arquivo existente possui 0 bytes (arquivo vazio).');
-      console.log('   Por segurança, o script não sobrescreve arquivos existentes silenciosamente.');
-      process.exit(0);
+      console.error('❌ [ERRO DE INTEGRIDADE] O arquivo SQLite detectado possui 0 bytes (arquivo vazio ou corrompido).');
+      console.error('🔒 A inicialização foi interrompida de forma segura sem sobrescrever ou alterar o arquivo.');
+      console.error('   Restaure um backup íntegro do banco de dados ou remova o arquivo corrompido manualmente caso deseje um novo provisionamento.');
+      process.exit(1);
     }
 
     // Validação de compatibilidade do esquema

@@ -83,13 +83,53 @@ async function main() {
   let consultaPassword = 'consulta123';
 
   if (isProduction) {
-    if (!process.env.INITIAL_ADMIN_PASSWORD && !process.env.DEMO_MODE) {
-      console.warn('⚠️  [PRODUÇÃO] INITIAL_ADMIN_PASSWORD não foi informada. Gerando credencial segura interna.');
+    const WEAK_PASSWORDS = new Set([
+      'admin', 'admin123', 'admin@123', '123456', '12345678', 'password',
+      'secret', 'changeme', 'root', 'logisense', 'logisense123', 'gerente123',
+      'operador123', 'consulta123', 'teste123', 'qwerty', '123456789'
+    ]);
+
+    function validatePasswordStrength(varName: string, password?: string): string {
+      if (!password) {
+        return crypto.randomBytes(16).toString('base64url');
+      }
+
+      const trimmed = password.trim();
+      if (trimmed.length < 12) {
+        console.error(
+          `❌ [SEGURANÇA] A senha fornecida via ${varName} é muito curta (possui menos de 12 caracteres). Em produção, utilize senhas com no mínimo 12 caracteres.`
+        );
+        process.exit(1);
+      }
+
+      if (WEAK_PASSWORDS.has(trimmed.toLowerCase())) {
+        console.error(
+          `❌ [SEGURANÇA] A senha fornecida via ${varName} foi rejeitada por ser fraca ou previsível. Defina uma senha forte com alta entropia.`
+        );
+        process.exit(1);
+      }
+
+      // Validação de diversidade de caracteres (letras e números)
+      const hasLetter = /[a-zA-Z]/.test(trimmed);
+      const hasNumber = /[0-9]/.test(trimmed);
+      if (!hasLetter || !hasNumber) {
+        console.error(
+          `❌ [SEGURANÇA] A senha fornecida via ${varName} deve conter pelo menos uma combinação de letras e números para garantir entropia mínima.`
+        );
+        process.exit(1);
+      }
+
+      return trimmed;
     }
-    adminPassword = process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(16).toString('base64url');
-    gerentePassword = process.env.INITIAL_GERENTE_PASSWORD || crypto.randomBytes(16).toString('base64url');
-    operadorPassword = process.env.INITIAL_OPERADOR_PASSWORD || crypto.randomBytes(16).toString('base64url');
-    consultaPassword = process.env.INITIAL_CONSULTA_PASSWORD || crypto.randomBytes(16).toString('base64url');
+
+    if (!process.env.INITIAL_ADMIN_PASSWORD && !process.env.DEMO_MODE) {
+      console.warn('⚠️  [PRODUÇÃO] INITIAL_ADMIN_PASSWORD não foi informada. Gerando credencial segura interna com alta entropia.');
+    }
+
+    adminPassword = validatePasswordStrength('INITIAL_ADMIN_PASSWORD', process.env.INITIAL_ADMIN_PASSWORD);
+    gerentePassword = validatePasswordStrength('INITIAL_GERENTE_PASSWORD', process.env.INITIAL_GERENTE_PASSWORD);
+    operadorPassword = validatePasswordStrength('INITIAL_OPERADOR_PASSWORD', process.env.INITIAL_OPERADOR_PASSWORD);
+    consultaPassword = validatePasswordStrength('INITIAL_CONSULTA_PASSWORD', process.env.INITIAL_CONSULTA_PASSWORD);
 
     console.log('🔒 [PRODUÇÃO] Inicialização de senhas seguras executada com hash Bcrypt.');
     console.log('🛡️  Por segurança, nenhuma senha em texto plano é exibida nos logs do servidor.');

@@ -105,9 +105,9 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   });
 });
 
-const server = app.listen(config.port, '0.0.0.0', () => {
-  console.log(`🚀 LOGISENSE WMS Backend iniciado na porta ${config.port} (SQLite Local)`);
-  console.log(`📍 Health Check: http://localhost:${config.port}/api/health`);
+const server = app.listen(config.port, config.host, () => {
+  console.log(`🚀 LOGISENSE WMS Backend iniciado em http://${config.host}:${config.port} (SQLite Local)`);
+  console.log(`📍 Health Check: http://${config.host}:${config.port}/api/health`);
 });
 
 const gracefulShutdown = async (signal: string) => {

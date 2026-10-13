@@ -6,31 +6,74 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🔍 Verificando estado do banco de dados SQLite local...');
 
-  const existingUsers = await prisma.user.count();
-  if (existingUsers > 0 && process.env.FORCE_SEED !== 'true') {
-    console.log(
-      `✅ Banco de dados já possui dados (${existingUsers} usuários encontrados). Seed ignorado por segurança para preservar os dados existentes.`
+  let counts: Record<string, number>;
+  try {
+    const [
+      users,
+      categories,
+      locations,
+      products,
+      stockMovements,
+      orders,
+      orderItems,
+      receivings,
+      receivingItems,
+      auditLogs,
+      iotReadings,
+      alerts,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.category.count(),
+      prisma.location.count(),
+      prisma.product.count(),
+      prisma.stockMovement.count(),
+      prisma.order.count(),
+      prisma.orderItem.count(),
+      prisma.receiving.count(),
+      prisma.receivingItem.count(),
+      prisma.auditLog.count(),
+      prisma.ioTReading.count(),
+      prisma.alert.count(),
+    ]);
+
+    counts = {
+      users,
+      categories,
+      locations,
+      products,
+      stock_movements: stockMovements,
+      orders,
+      order_items: orderItems,
+      receivings,
+      receiving_items: receivingItems,
+      audit_logs: auditLogs,
+      iot_readings: iotReadings,
+      alerts,
+    };
+  } catch (err: any) {
+    console.error(
+      '❌ Estrutura do banco de dados ausente, inesperada ou incompatível com o schema Prisma atual.'
     );
-    console.log('💡 Caso deseje forçar a recriação em um banco de testes vazio, defina FORCE_SEED=true.');
+    console.error(
+      '🔒 Operação de seed encerrada por segurança sem realizar qualquer alteração ou limpeza no arquivo SQLite.'
+    );
+    console.error(`   Detalhe técnico: ${err?.message || err}`);
+    process.exit(1);
+  }
+
+  const populatedTables = Object.entries(counts).filter(([, count]) => count > 0);
+  if (populatedTables.length > 0) {
+    const summary = populatedTables.map(([table, count]) => `${table}: ${count}`).join(', ');
+    console.log(
+      `✅ Banco de dados já possui dados (${summary}). Seed ignorado por segurança para preservar integralmente os registros existentes.`
+    );
+    console.log(
+      '🔒 Nenhuma operação de limpeza ou sobrescrita é permitida sobre um banco de dados populado.'
+    );
     return;
   }
 
-  console.log('🌱 Iniciando seed para novo ambiente do LOGISENSE WMS (Campinas - SP)...');
-
-  if (process.env.FORCE_SEED === 'true') {
-    await prisma.auditLog.deleteMany();
-    await prisma.alert.deleteMany();
-    await prisma.ioTReading.deleteMany();
-    await prisma.orderItem.deleteMany();
-    await prisma.order.deleteMany();
-    await prisma.receivingItem.deleteMany();
-    await prisma.receiving.deleteMany();
-    await prisma.stockMovement.deleteMany();
-    await prisma.product.deleteMany();
-    await prisma.category.deleteMany();
-    await prisma.location.deleteMany();
-    await prisma.user.deleteMany();
-  }
+  console.log('🌱 Banco de dados vazio confirmado (12 tabelas com 0 registros). Iniciando seed para novo ambiente do LOGISENSE WMS (Campinas - SP)...');
 
   // 1. Criar Usuários (4 perfis RBAC)
   const adminHash = await bcrypt.hash('admin123', 10);

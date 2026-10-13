@@ -15,10 +15,10 @@ A **Fase 8** consolidou o aperfeiçoamento técnico final do **LOGISENSE WMS**, 
 
 Principais entregas concluídas e validadas nesta etapa:
 1. **Consolidação Definitiva do Banco SQLite Local:** reversão limpa do `schema.prisma` para `provider = "sqlite"`, preservação integral (byte a byte) do banco `backend/prisma/dev.db` e de seu backup `dev.db.backup_original` (SHA-256: `E3E631982A5A01BC7405D02556039E5A53E81C10457A7213A5E2CEC19424AA82`), e remoção de dependências e arquivos temporários de nuvem (`@supabase/*`, `render.yaml`, `frontend/vercel.json`, scripts de migração PostgreSQL).
-2. **Inicialização Segura para Novos Computadores (`npm run db:init`):** atualização completa do `backend/prisma/seed.ts` compatível com as 10 tabelas atuais do esquema Prisma e equipada com trava não-destrutiva (caso o banco já possua usuários cadastrados, o seed é abortado automaticamente para proteger os dados existentes).
-3. **Hardening de Segurança no Backend e Frontend:** implementação de lista explícita (*allowlist*) de origens no CORS (removendo curingas `*` e `.vercel.app`), proteção contra força bruta no login (`POST /api/auth/login` com limite de 10 falhas por janela de 15 minutos retornando HTTP 429), limite de payload JSON (`256kb`), cabeçalhos HTTP defensivos (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy`), e sincronização imediata de sessão tanto entre abas (`StorageEvent`) quanto na mesma aba (`logisense:unauthorized`).
+2. **Inicialização Segura para Novos Computadores (`npm run db:init`):** atualização completa do `backend/prisma/seed.ts` compatível com os 12 modelos / 12 tabelas de negócio atuais do esquema Prisma e equipada com trava não-destrutiva (aperfeiçoada na Fase 8.1 com `scripts/db-init.js` e remoção completa de `FORCE_SEED`).
+3. **Hardening de Segurança no Backend e Frontend:** implementação de lista explícita (*allowlist*) de origens no CORS (removendo curingas `*` e `.vercel.app`), proteção contra força bruta no login (`POST /api/auth/login` com limite de 10 falhas por janela de 15 minutos retornando HTTP 429), limite de payload JSON (`256kb`), cabeçalhos HTTP defensivos (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy`), bind local em `127.0.0.1` (consolidado na Fase 8.1) e sincronização imediata de sessão tanto entre abas (`StorageEvent`) quanto na mesma aba (`logisense:unauthorized`).
 4. **Padronização de Rótulos e Fluxos Operacionais:** normalização idempotente dos nomes de áreas na telemetria IoT (`normalizeArea` no backend e `formatAreaLabel` no frontend) impedindo qualquer ocorrência de rótulos duplicados como `"ÁREA Área A"`, além de alinhamento de permissões RBAC nos atalhos operacionais e relatórios.
-5. **Acessibilidade WCAG 2.2 Nível AA:** implementação de link de salto para o conteúdo principal (*Skip Link*), anel de foco visível para navegação por teclado (`:focus-visible`), suporte a `@media (prefers-reduced-motion: reduce)`, fechamento de modais e menu mobile com tecla `Escape`, semântica `role="dialog"` / `aria-modal="true"`, `role="alert"` / `role="status"`, `scope="col"` em cabeçalhos de tabelas e `aria-label` em controles interativos.
+5. **Melhorias Práticas de Acessibilidade (Inspiradas na WCAG 2.2 AA):** implementação de link de salto para o conteúdo principal (*Skip Link*), anel de foco visível para navegação por teclado (`:focus-visible`), suporte a `@media (prefers-reduced-motion: reduce)`, fechamento de modais e menu mobile com tecla `Escape`, semântica `role="dialog"` / `aria-modal="true"`, `role="alert"` / `role="status"`, `scope="col"` em cabeçalhos de tabelas e `aria-label` em controles interativos (nota: melhorias técnicas de engenharia inspecionadas no código, sem reivindicação de certificação externa formal).
 
 ---
 
@@ -28,19 +28,21 @@ A integridade do banco de dados local existente foi tratada como requisito absol
 
 - **Arquivo principal:** `backend/prisma/dev.db` (282.624 bytes)
 - **Backup original:** `backend/prisma/dev.db.backup_original` (282.624 bytes)
-- **Hash SHA-256 antes e depois de toda a Fase 8:**
+- **Hash SHA-256 antes e depois de toda a Fase 8 e Fase 8.1:**
   `E3E631982A5A01BC7405D02556039E5A53E81C10457A7213A5E2CEC19424AA82`
-- **Contagem real de registros preservada em `dev.db`:**
-  - `users`: **4** (ADMIN, GERENTE, OPERADOR, CONSULTA)
-  - `categories`: **4**
-  - `locations`: **8**
-  - `products`: **9**
-  - `receivings`: **1**
-  - `orders`: **53**
-  - `stock_movements`: **28**
-  - `iot_readings`: **86**
-  - `alerts`: **28**
-  - `audit_logs`: **375**
+- **Contagem real de registros preservada nas 12 tabelas de negócio em `dev.db` (666 registros no total):**
+  - `users` (`User`): **4** (ADMIN, GERENTE, OPERADOR, CONSULTA)
+  - `categories` (`Category`): **4**
+  - `locations` (`Location`): **8**
+  - `products` (`Product`): **9**
+  - `stock_movements` (`StockMovement`): **28**
+  - `orders` (`Order`): **53**
+  - `order_items` (`OrderItem`): **68**
+  - `receivings` (`Receiving`): **1**
+  - `receiving_items` (`ReceivingItem`): **2**
+  - `audit_logs` (`AuditLog`): **375**
+  - `iot_readings` (`IoTReading`): **86**
+  - `alerts` (`Alert`): **28**
 
 > **Como os testes destrutivos/mutáveis foram executados sem alterar o `dev.db`:**  
 > Todas as suítes automatizadas que criam pedidos, recebimentos, movimentações e alertas (`verify_fase4.js`, `verify_fase5.js`, `verify_fase6.js`, `verify_session_and_security.js`) foram executadas apontando temporariamente `DATABASE_URL="file:./test_isolated.db"` (uma cópia descartável removida ao término da bateria), mantendo o `dev.db` 100% inalterado. Da mesma forma, o teste de inicialização de banco do zero foi realizado sobre um arquivo temporário `fresh_test.db`, posteriormente removido.
@@ -132,7 +134,7 @@ Dependências não utilizadas **removidas** de `backend/package.json`:
 | :--- | :--- | :--- |
 | **Build Backend (`npm run build`)** | Geração do Prisma Client (`sqlite`) + Compilação TypeScript (`tsc`) sem erros. | ✅ **PASS (0 erros)** |
 | **Build Frontend (`npm run build`)** | Checagem de tipos TypeScript (`tsc`) + Bundle de produção Vite. | ✅ **PASS (0 erros)** |
-| **Inicialização de Banco Novo (`fresh_test.db`)** | `prisma db push` + `tsx prisma/seed.ts` em banco vazio + verificação da trava de segurança na 2ª execução. | ✅ **PASS (10 tabelas populadas / 2ª execução bloqueada com segurança)** |
+| **Inicialização de Banco Novo (`fresh_test.db`)** | `prisma db push` + `tsx prisma/seed.ts` em banco vazio + verificação da trava de segurança na 2ª execução. | ✅ **PASS (12 tabelas populadas / 2ª execução bloqueada com segurança)** |
 | **Testes Automatizados Fase 4 (`verify_fase4.js`)** | Ciclo completo de Pedidos, Picking, Expedição, estoque e RBAC (em banco isolado). | ✅ **PASS (40/40 asserções)** |
 | **Testes Automatizados Fase 5 (`verify_fase5.js`)** | Telemetria IoT, limites, anti-duplicação e resolução de alertas, Dashboard e Relatórios/CSV (em banco isolado). | ✅ **PASS (40/40 asserções)** |
 | **Testes Automatizados Fase 6 (`verify_fase6.js`)** | Segurança JWT, RBAC 401/403, Health Check, validação de payload, ocultação de stack trace e LGPD no AuditLog. | ✅ **PASS (24/24 asserções)** |

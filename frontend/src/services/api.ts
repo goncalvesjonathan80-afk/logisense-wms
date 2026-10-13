@@ -73,14 +73,20 @@ export const api = {
   // Autenticação
   login: (email: string, password: string): Promise<AuthResponse> =>
     request<AuthResponse>('/auth/login', {
+       method: 'POST',
+       body: JSON.stringify({ email, password }),
+     }),
+
+  demoLogin: (role: string): Promise<AuthResponse> =>
+    request<AuthResponse>('/auth/demo-login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ role }),
     }),
 
   getMe: (): Promise<{ user: User }> => request<{ user: User }>('/auth/me'),
 
-  getDemoAccounts: (): Promise<{ accounts: DemoAccount[] }> =>
-    request<{ accounts: DemoAccount[] }>('/auth/demo-accounts'),
+  getDemoAccounts: (): Promise<{ accounts: DemoAccount[]; demoMode?: boolean }> =>
+    request<{ accounts: DemoAccount[]; demoMode?: boolean }>('/auth/demo-accounts'),
 
   // Dashboard
   getDashboardStats: (): Promise<DashboardData> =>

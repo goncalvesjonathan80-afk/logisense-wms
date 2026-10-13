@@ -5,11 +5,11 @@
 # ------------------------------------------------------------------------------
 # Estágio 1: Build do Frontend (React + Vite + TypeScript)
 # ------------------------------------------------------------------------------
-FROM node:20-bookworm-slim AS frontend-builder
+FROM node:22-bookworm-slim AS frontend-builder
 WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY frontend/ ./
 RUN npm run build
@@ -17,14 +17,14 @@ RUN npm run build
 # ------------------------------------------------------------------------------
 # Estágio 2: Build do Backend (Node.js + Express + Prisma + TypeScript)
 # ------------------------------------------------------------------------------
-FROM node:20-bookworm-slim AS backend-builder
+FROM node:22-bookworm-slim AS backend-builder
 WORKDIR /app/backend
 
 # Instalação de dependências nativas para compilação do Prisma com OpenSSL
 RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY backend/package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY backend/prisma ./prisma
 RUN npx prisma generate
@@ -35,7 +35,7 @@ RUN npm run build
 # ------------------------------------------------------------------------------
 # Estágio 3: Imagem Final de Execução (Runner)
 # ------------------------------------------------------------------------------
-FROM node:20-bookworm-slim AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -57,7 +57,7 @@ COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 # Configuração e dependências de produção do backend
 WORKDIR /app/backend
 COPY backend/package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 # Copiar Prisma schema, scripts de inicialização defensiva e backend compilado
 COPY backend/prisma ./prisma

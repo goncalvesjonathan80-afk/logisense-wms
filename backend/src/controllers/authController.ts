@@ -153,15 +153,96 @@ export async function getMe(req: AuthenticatedRequest, res: Response): Promise<v
   }
 }
 
+export async function demoLogin(req: Request, res: Response): Promise<void> {
+  try {
+    // Permitido em desenvolvimento local OU em produção exclusivamente se DEMO_MODE=true
+    const isAllowed = !config.isProduction || config.isDemoMode;
+    if (!isAllowed) {
+      res.status(403).json({
+        message: 'Acesso demonstrativo desativado neste ambiente por políticas de segurança.',
+      });
+      return;
+    }
+
+    const { role } = req.body;
+    const allowedRoles = ['ADMIN', 'GERENTE', 'OPERADOR', 'CONSULTA'];
+
+    if (!role || typeof role !== 'string' || !allowedRoles.includes(role.toUpperCase())) {
+      res.status(400).json({ message: 'Perfil demonstrativo inválido.' });
+      return;
+    }
+
+    // Rate Limiting no demo login por IP
+    const rateKey = `demo:${req.ip || req.socket.remoteAddress || '127.0.0.1'}`;
+    if (isRateLimited(rateKey)) {
+      res.status(429).json({
+        message: 'Muitas tentativas de acesso demonstrativo. Aguarde alguns instantes.',
+      });
+      return;
+    }
+
+    const targetRole = role.toUpperCase();
+    const user = await prisma.user.findFirst({
+      where: { role: targetRole, active: true },
+    });
+
+    if (!user) {
+      recordFailedAttempt(rateKey);
+      res.status(404).json({ message: `Conta demonstrativa para o perfil ${targetRole} não encontrada.` });
+      return;
+    }
+
+    clearFailedAttempts(rateKey);
+
+    const payload: AuthUserPayload = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role as any,
+      department: user.department,
+    };
+
+    const token = jwt.sign(payload, config.jwtSecret, {
+      expiresIn: config.jwtExpiresIn as any,
+    });
+
+    // Registrar no log de auditoria
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'DEMO_LOGIN',
+        module: 'AUTH',
+        description: `Acesso demonstrativo acadêmico realizado no perfil ${user.role} (${user.name})`,
+        ipAddress: req.ip || '127.0.0.1',
+      },
+    });
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+      },
+    });
+  } catch (error) {
+    console.error('Erro no demoLogin:', error);
+    res.status(500).json({ message: 'Erro ao processar autenticação demonstrativa.' });
+  }
+}
+
 export async function getDemoAccounts(_req: Request, res: Response): Promise<void> {
   try {
-    // Em ambiente de produção, desativa a exposição pública de contas demo e senhas sugeridas
-    if (config.isProduction && process.env.ENABLE_DEMO_ACCOUNTS !== 'true') {
-      res.json({ accounts: [] });
+    const isAllowed = !config.isProduction || config.isDemoMode;
+    if (!isAllowed) {
+      res.json({ accounts: [], demoMode: false });
       return;
     }
 
     const users = await prisma.user.findMany({
+      where: { active: true },
       select: {
         name: true,
         email: true,
@@ -172,6 +253,7 @@ export async function getDemoAccounts(_req: Request, res: Response): Promise<voi
     });
 
     res.json({
+      demoMode: true,
       accounts: users.map((u) => ({
         name: u.name,
         email: u.email,

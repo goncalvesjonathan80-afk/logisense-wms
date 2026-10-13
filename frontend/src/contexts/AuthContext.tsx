@@ -7,6 +7,7 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  demoLogin: (role: UserRole) => Promise<void>;
   logout: () => void;
   hasRole: (allowedRoles: UserRole[]) => boolean;
   canAccessRoute: (routePath: string) => boolean;
@@ -109,6 +110,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(data.user);
   };
 
+  const demoLogin = async (role: UserRole) => {
+    const data = await api.demoLogin(role);
+    setAuthToken(data.token);
+    setToken(data.token);
+    setUser(data.user);
+  };
+
   const logout = () => {
     removeAuthToken();
     setUser(null);
@@ -134,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isLoading,
         login,
+        demoLogin,
         logout,
         hasRole,
         canAccessRoute,

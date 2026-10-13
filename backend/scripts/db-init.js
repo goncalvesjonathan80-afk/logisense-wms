@@ -63,6 +63,14 @@ function resolveAndValidateSqlitePath(databaseUrl) {
         reason: `Em produção, o banco de dados deve residir exclusivamente no volume persistente autorizado (${allowedVolumeDir}). Caminho configurado foi rejeitado: "${resolvedDbPath}".`,
       };
     }
+
+    const mountCheck = verifyPersistentMount(allowedVolumeDir);
+    if (!mountCheck.mounted) {
+      return {
+        valid: false,
+        reason: mountCheck.reason,
+      };
+    }
   } else {
     // No ambiente local/desenvolvimento, o Prisma resolve caminhos relativos a partir do diretório do schema (backend/prisma)
     resolvedDbPath = path.isAbsolute(rawPath)
@@ -127,14 +135,64 @@ function resolveAndValidateSqlitePath(databaseUrl) {
   };
 }
 
+function verifyPersistentMount(volumeDir) {
+  // No ambiente Linux de produção, verificar se o caminho está montado
+  if (process.platform === 'linux' && fs.existsSync('/proc/mounts')) {
+    try {
+      const mounts = fs.readFileSync('/proc/mounts', 'utf8');
+      const normalizedVolume = path.normalize(volumeDir);
+      const isMounted = mounts.split('\n').some((line) => {
+        const parts = line.trim().split(/\s+/);
+        return parts.length >= 2 && path.normalize(parts[1]) === normalizedVolume;
+      });
+      if (!isMounted) {
+        // Se RAILWAY_ENVIRONMENT existir e não estiver montado, emitir erro crítico
+        if (process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID) {
+          return {
+            mounted: false,
+            reason: `Volume persistente não encontrado na tabela de montagens do sistema (/proc/mounts) para "${normalizedVolume}". Verifique a configuração do Railway Volume.`,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️  Não foi possível verificar /proc/mounts:', err.message);
+    }
+  }
+  return { mounted: true };
+}
+
 async function verifyExistingSchemaCompatibility(rawUrl) {
   try {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient({ datasources: { db: { url: rawUrl } } });
-    await prisma.$queryRawUnsafe('SELECT 1');
-    await prisma.user.count();
-    await prisma.product.count();
-    await prisma.order.count();
+    
+    // Integridade do arquivo SQLite
+    const integrityResult = await prisma.$queryRawUnsafe('PRAGMA integrity_check;');
+    const integrityStatus = Array.isArray(integrityResult) && integrityResult[0] ? Object.values(integrityResult[0])[0] : 'ok';
+    if (integrityStatus !== 'ok') {
+      await prisma.$disconnect();
+      return {
+        compatible: false,
+        detail: `PRAGMA integrity_check falhou com status: "${integrityStatus}". Arquivo de banco de dados corrompido.`,
+      };
+    }
+
+    // Validação de TODOS os 12 modelos Prisma
+    await Promise.all([
+      prisma.user.count(),
+      prisma.category.count(),
+      prisma.location.count(),
+      prisma.product.count(),
+      prisma.stockMovement.count(),
+      prisma.order.count(),
+      prisma.orderItem.count(),
+      prisma.receiving.count(),
+      prisma.receivingItem.count(),
+      prisma.auditLog.count(),
+      prisma.ioTReading.count(),
+      prisma.alert.count(),
+    ]);
+
     await prisma.$disconnect();
     return { compatible: true };
   } catch (err) {

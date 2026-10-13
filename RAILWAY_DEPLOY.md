@@ -24,7 +24,7 @@ Este guia orienta o processo de deploy do **LOGISENSE WMS** no [Railway](https:/
            │   ├── /assets/*       ──▶ Static Assets (Vite)   │
            │   └── /* (SPA Fallback) ▶ frontend/dist/index.html│
            │                                                  │
-           │   [ Prisma ORM 5.x ]                             │
+           │   [ Prisma ORM 5.x / Node.js 22 LTS ]            │
            │          │                                       │
            └──────────┼───────────────────────────────────────┘
                       │ (DATABASE_URL=file:/data/logisense.db)
@@ -41,6 +41,7 @@ Este guia orienta o processo de deploy do **LOGISENSE WMS** no [Railway](https:/
 * **Volume Persistente:** O arquivo SQLite de produção reside exclusivamente em um **Railway Volume montado em `/data`** (`DATABASE_URL=file:/data/logisense.db`).
 * **Instância Única (1 Réplica):** O arquivo de configuração `railway.json` garante estritamente `numReplicas: 1`, evitando concorrência distribuída no SQLite.
 * **Inicialização em Runtime:** A criação da base de produção ocorre no startup do container (`docker-entrypoint.sh`), após a montagem do volume, e **nunca durante o build**.
+* **Demonstração Acadêmica (PIM III):** Acesso facilitado ao corpo docente através da variável `DEMO_MODE=true`, permitindo autenticação direta em 1 clique para os 4 perfis RBAC sem expor senhas.
 
 ---
 
@@ -54,7 +55,7 @@ Este guia orienta o processo de deploy do **LOGISENSE WMS** no [Railway](https:/
 ### Passo 2: Criar e Conectar o Volume Persistente
 > ⚠️ **OBRIGATÓRIO:** O SQLite de produção necessita de um disco persistente para que os dados sobrevivam a reinicializações e novos deploys.
 
-1. No canvas do seu projeto no Railway, clique com o botão direito ou no menu **"+"** $\rightarrow$ **"Volume"**.
+1. No canvas do seu projeto no Railway, clique no menu **"+"** $\rightarrow$ **"Volume"**.
 2. Conecte o Volume ao serviço do LOGISENSE WMS.
 3. Configure o **Mount Path** do volume exatamente como:
    ```text
@@ -63,22 +64,22 @@ Este guia orienta o processo de deploy do **LOGISENSE WMS** no [Railway](https:/
 4. O tamanho padrão (1 GB ou superior) é suficiente para dezenas de milhares de registros.
 
 ### Passo 3: Configurar as Variáveis de Ambiente
-Na aba **Variables** do serviço no Railway, defina as seguintes variáveis obrigatórias:
+Na aba **Variables** do serviço no Railway, defina as seguintes variáveis:
 
 | Variável | Valor Recomendado | Descrição / Finalidade |
 | :--- | :--- | :--- |
-| `NODE_ENV` | `production` | Ativa o modo de produção, validações estritas de segurança e ocultação de contas demo. |
+| `NODE_ENV` | `production` | Ativa o modo de produção e validações estritas de segurança. |
 | `DATABASE_URL` | `file:/data/logisense.db` | Caminho do arquivo SQLite no volume persistente montado em `/data`. |
 | `JWT_SECRET` | *[Gere uma chave com 32+ caracteres]* | Chave criptográfica para assinatura dos tokens JWT. **Obrigatório e validado no startup.** |
-| `INITIAL_ADMIN_PASSWORD` | *[Defina uma senha forte]* | Senha inicial para o usuário `admin@logisense.com` caso o banco seja provisionado pela primeira vez. |
+| `DEMO_MODE` | `true` *(para banca examinadora/PIM III)* | Habilita os 4 botões de 1 clique na tela de login para avaliação acadêmica pelo professor. |
+| `INITIAL_ADMIN_PASSWORD` | *[Defina uma senha forte]* | Senha inicial para o usuário `admin@logisense.com` em caso de provisionamento do zero. |
 
 #### Variáveis Opcionais:
 | Variável | Valor Padrão | Descrição |
 | :--- | :--- | :--- |
 | `RAILWAY_VOLUME_MOUNT_PATH` | `/data` | Diretório raiz do volume persistente. |
 | `JWT_EXPIRES_IN` | `8h` | Tempo de expiração dos tokens de sessão. |
-| `ENABLE_DEMO_ACCOUNTS` | `false` | Se `true`, exibe os botões de teste na tela de login (não recomendado em produção). |
-| `CORS_ORIGIN` | `""` | Origens externas adicionais permitidas no CORS (geralmente dispensável pelo uso de mesma origem). |
+| `CORS_ORIGIN` | `""` | Origens externas adicionais permitidas no CORS. |
 
 > 💡 **Como gerar um JWT_SECRET forte:**
 > Você pode gerar uma chave aleatória de 96 caracteres hexadecimais no terminal executando:
@@ -94,14 +95,30 @@ Na aba **Variables** do serviço no Railway, defina as seguintes variáveis obri
 
 ---
 
-## 3. Comandos de Build e Execução
+## 3. Demonstração Acadêmica para o Corpo Docente
 
-O Railway utilizará automaticamente o [Dockerfile](file:///C:/Users/Jonathan%20Souza/.gemini/antigravity/scratch/logisense-wms/Dockerfile) e o [railway.json](file:///C:/Users/Jonathan%20Souza/.gemini/antigravity/scratch/logisense-wms/railway.json) presentes na raiz do projeto:
+Com `DEMO_MODE=true` ativo no Railway, a tela de login apresentará os 4 botões de acesso imediato:
 
-* **Build:** Multi-stage Dockerfile compilando `frontend` (Vite) e `backend` (TypeScript + Prisma Client).
+1. **Entrar como Administrador** (`ADMIN` — Carlos Eduardo / TI)
+2. **Entrar como Gerente** (`GERENTE` — Fernanda Lima / Administração Logística)
+3. **Entrar como Operador** (`OPERADOR` — Marcos Oliveira / Estoque e Expedição)
+4. **Entrar como Consulta** (`CONSULTA` — Beatriz Santos / Atendimento)
+
+**Mecanismo de Segurança:**
+* A autenticação ocorre diretamente no backend através do endpoint seguro `POST /api/auth/demo-login`.
+* O backend valida se `DEMO_MODE=true`, localiza o usuário correspondente ao perfil solicitado, emite um token JWT oficial assinado e registra um evento em `AuditLog`.
+* Nenhuma senha de produção é transitada via rede ou exposta no frontend.
+
+---
+
+## 4. Comandos de Build e Execução
+
+O Railway utilizará automaticamente o `Dockerfile` e o `railway.json` presentes na raiz do projeto:
+
+* **Build:** Multi-stage Dockerfile utilizando Node.js 22 LTS, executando `npm ci` e compilando `frontend` (Vite) e `backend` (TypeScript + Prisma Client).
 * **Entrypoint:** `docker-entrypoint.sh`:
   1. Executa `node backend/scripts/db-init.js`:
-     * Se `/data/logisense.db` já existir: verifica compatibilidade de esquema e **preserva 100% dos dados** sem executar `prisma db push` nem `seed`.
+     * Se `/data/logisense.db` já existir: verifica integridade SQLite (`PRAGMA integrity_check`), valida todos os 12 modelos Prisma e **preserva 100% dos dados** sem executar `prisma db push` nem `seed`.
      * Se `/data/logisense.db` ainda não existir: cria as 12 tabelas via `prisma db push --skip-generate` e popula os dados iniciais com senhas seguras.
   2. Executa `node backend/dist/server.js`:
      * Escuta em `0.0.0.0` na porta definida pelo Railway (`PORT`).
@@ -109,38 +126,45 @@ O Railway utilizará automaticamente o [Dockerfile](file:///C:/Users/Jonathan%20
 
 ---
 
-## 4. Procedimentos Operacionais: Backup, Restore e Rollback
+## 5. Procedimentos Operacionais: Backup, Restore e Rollback
 
 ### Backup do Banco de Produção (`/data/logisense.db`)
-Como o banco SQLite é um arquivo simples localizado no volume persistente, você pode criar cópias de segurança a qualquer momento:
+O banco SQLite é um arquivo persistente armazenado no Railway Volume montado em `/data`.
 
-1. **Via Railway CLI:**
+1. **Via Railway CLI / Shell interativo:**
+   Conecte-se ao container ou ambiente através do Railway CLI:
    ```bash
-   # Instale a Railway CLI se necessário: npm i -g @railway/cli
    railway login
    railway link
    
-   # Baixar uma cópia segura do banco SQLite
-   railway run cp /data/logisense.db /data/logisense-backup-$(date +%Y%m%d).db
+   # Conectar na shell do container ativo
+   railway shell
+   
+   # Criar cópia de segurança com timestamp no volume
+   cp /data/logisense.db /data/logisense-backup-$(date +%Y%m%d%H%M%S).db
    ```
-2. **Backup automatizado:** você também pode copiar o arquivo para seu armazenamento externo seguro ou fazer o download via SSH/CLI.
+2. **Download de cópia do arquivo via CLI:**
+   Utilize o comando de cópia ou SFTP/SSH do Railway para baixar o arquivo `logisense.db` para seu armazenamento local de segurança.
 
-### Restauração de Backup
-Caso precise restaurar um backup prévio:
-1. Pare temporariamente o serviço ou suba uma nova versão apontando para a cópia desejada.
-2. Copie o arquivo de backup para `/data/logisense.db`.
-3. Reinicie o serviço. O `db-init.js` detectará a base existente, validará a integridade e iniciará normalmente sem modificar os registros restaurados.
+### Restauração de Backup (Restore)
+Caso seja necessário restaurar um backup existente:
+1. Conecte-se via `railway shell`:
+   ```bash
+   cp /data/logisense-backup-AAAAMMDD.db /data/logisense.db
+   ```
+2. Reinicie o serviço no painel do Railway (**Restart**).
+3. O script `db-init.js` detectará a base restaurada existente, validará a integridade do SQLite e dos 12 modelos Prisma, e inicializará o sistema sem sobrescrever os dados.
 
 ### Rollback de Deploy
-Se uma nova versão de código apresentar regressão:
-1. No painel do Railway, vá na aba **Deployments**.
-2. Localize o deploy anterior que estava saudável.
+Se um deploy de código apresentar falhas:
+1. No painel do Railway, acesse a aba **Deployments**.
+2. Localize o deploy anterior que estava operacional e saudável.
 3. Clique nos três pontinhos (`...`) $\rightarrow$ **"Rollback to this deployment"**.
-4. Como o banco de dados está no volume persistente (`/data`), os dados operacionais permanecem intactos durante o rollback.
+4. Como os dados residem isolados no Railway Volume (`/data`), o rollback de código não afeta o banco SQLite.
 
 ---
 
-## 5. Como o Ambiente Local Permanece Preservado
+## 6. Como o Ambiente Local Permanece Preservado
 
 Todas as configurações locais existentes foram estritamente preservadas:
 
@@ -150,7 +174,7 @@ Todas as configurações locais existentes foram estritamente preservadas:
 | **Endereço de Escuta** | `127.0.0.1` (loopback seguro) | `0.0.0.0` (exposto via proxy Railway) |
 | **Porta Padrão** | `3001` (Backend) / `5173` (Frontend Vite) | Definida por `process.env.PORT` |
 | **Chave JWT** | Local via `.env` ou chave efêmera | Obrigatória via variável com 32+ caracteres |
-| **Contas de Demonstração**| Exibidas com preenchimento em 1 clique | Ocultadas na interface e endpoint seguro |
+| **Acesso Demonstrativo** | Ativo para testes e desenvolvimento | Controlado via variável `DEMO_MODE=true` |
 | **Health Check** | `http://localhost:3001/api/health` | `https://<seu-dominio>/api/health` (503 se o DB cair) |
 
 Para rodar localmente no seu computador, nada mudou:

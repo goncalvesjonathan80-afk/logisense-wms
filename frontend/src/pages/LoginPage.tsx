@@ -3,17 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { Boxes, Lock, Mail, ArrowRight, Shield, AlertCircle, Info } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
-import { DemoAccount } from '../types';
+import { DemoAccount, UserRole } from '../types';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, user } = useAuth();
+  const { login, demoLogin, user } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [demoLoadingRole, setDemoLoadingRole] = useState<UserRole | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [demoAccounts, setDemoAccounts] = useState<DemoAccount[]>([]);
+  const [demoModeActive, setDemoModeActive] = useState<boolean>(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
 
   useEffect(() => {
@@ -25,7 +27,10 @@ export const LoginPage: React.FC = () => {
   useEffect(() => {
     api
       .getDemoAccounts()
-      .then((res) => setDemoAccounts(res.accounts))
+      .then((res) => {
+        setDemoAccounts(res.accounts || []);
+        setDemoModeActive(res.demoMode === true || (res.accounts && res.accounts.length > 0));
+      })
       .catch((err) => console.warn('Não foi possível carregar contas demo:', err));
   }, []);
 
@@ -54,10 +59,17 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const fillDemoAccount = (acc: DemoAccount) => {
-    setEmail(acc.email);
-    setPassword(acc.suggestedPassword);
+  const handleDemoLogin = async (role: UserRole) => {
     setErrorMessage('');
+    setDemoLoadingRole(role);
+    try {
+      await demoLogin(role);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setErrorMessage(err.message || `Não foi possível autenticar como ${role}. Tente novamente.`);
+    } finally {
+      setDemoLoadingRole(null);
+    }
   };
 
   return (
@@ -164,33 +176,104 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Perfis de Acesso de Demonstração (ocultos quando desativados em produção) */}
-          {demoAccounts.length > 0 && (
+          {/* Acesso Acadêmico Demonstrativo — 4 Perfis em 1 Clique */}
+          {demoModeActive && (
             <div className="mt-6 pt-5 border-t border-slate-700">
-              <div className="flex items-center justify-between text-xs text-slate-400 font-medium mb-2.5">
-                <span>Perfis de Demonstração</span>
-                <span className="text-[10px] text-slate-500">1 clique para testar</span>
+              <div className="flex items-center justify-between text-xs text-slate-300 font-semibold mb-2.5">
+                <span className="flex items-center gap-1.5 text-sky-400">
+                  <Shield className="w-3.5 h-3.5" />
+                  Acesso Acadêmico (1 Clique)
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">Avaliação PIM III</span>
               </div>
+              <p className="text-[11px] text-slate-400 mb-3">
+                Acesso imediato para o corpo docente aos 4 perfis do sistema sem necessidade de digitar credenciais:
+              </p>
 
-              <div className="grid grid-cols-2 gap-2">
-                {demoAccounts.map((acc) => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => fillDemoAccount(acc)}
-                    className="p-2 text-left bg-slate-900 hover:bg-slate-750 border border-slate-700/80 rounded-sm transition-colors group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-200 group-hover:text-sky-300">
-                        {acc.role}
-                      </span>
-                      <Shield className="w-3 h-3 text-slate-500" />
-                    </div>
-                    <div className="text-[10px] text-slate-400 truncate mt-0.5">
-                      {acc.email}
-                    </div>
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={loading || demoLoadingRole !== null}
+                  onClick={() => handleDemoLogin('ADMIN')}
+                  className="p-2.5 text-left bg-slate-900 hover:bg-slate-750 border border-sky-500/30 hover:border-sky-400 rounded-sm transition-colors group disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-sky-300 group-hover:text-white">
+                      Entrar como Administrador
+                    </span>
+                    {demoLoadingRole === 'ADMIN' ? (
+                      <span className="text-[10px] text-sky-400 animate-pulse">Entrando...</span>
+                    ) : (
+                      <Shield className="w-3.5 h-3.5 text-sky-400" />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Acesso total e gestão do armazém
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={loading || demoLoadingRole !== null}
+                  onClick={() => handleDemoLogin('GERENTE')}
+                  className="p-2.5 text-left bg-slate-900 hover:bg-slate-750 border border-emerald-500/30 hover:border-emerald-400 rounded-sm transition-colors group disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-emerald-300 group-hover:text-white">
+                      Entrar como Gerente
+                    </span>
+                    {demoLoadingRole === 'GERENTE' ? (
+                      <span className="text-[10px] text-emerald-400 animate-pulse">Entrando...</span>
+                    ) : (
+                      <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Gestão operacional e relatórios
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={loading || demoLoadingRole !== null}
+                  onClick={() => handleDemoLogin('OPERADOR')}
+                  className="p-2.5 text-left bg-slate-900 hover:bg-slate-750 border border-amber-500/30 hover:border-amber-400 rounded-sm transition-colors group disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-amber-300 group-hover:text-white">
+                      Entrar como Operador
+                    </span>
+                    {demoLoadingRole === 'OPERADOR' ? (
+                      <span className="text-[10px] text-amber-400 animate-pulse">Entrando...</span>
+                    ) : (
+                      <Shield className="w-3.5 h-3.5 text-amber-400" />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Movimentação, picking e estoque
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={loading || demoLoadingRole !== null}
+                  onClick={() => handleDemoLogin('CONSULTA')}
+                  className="p-2.5 text-left bg-slate-900 hover:bg-slate-750 border border-purple-500/30 hover:border-purple-400 rounded-sm transition-colors group disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-purple-300 group-hover:text-white">
+                      Entrar como Consulta
+                    </span>
+                    {demoLoadingRole === 'CONSULTA' ? (
+                      <span className="text-[10px] text-purple-400 animate-pulse">Entrando...</span>
+                    ) : (
+                      <Shield className="w-3.5 h-3.5 text-purple-400" />
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Visualização e auditoria em leitura
+                  </div>
+                </button>
               </div>
             </div>
           )}

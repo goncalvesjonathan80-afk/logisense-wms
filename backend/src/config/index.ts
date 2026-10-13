@@ -4,6 +4,7 @@ import crypto from 'crypto';
 dotenv.config();
 
 const isProd = process.env.NODE_ENV === 'production';
+const isDemoMode = process.env.DEMO_MODE === 'true';
 
 const KNOWN_PLACEHOLDERS = new Set([
   '',
@@ -45,6 +46,7 @@ function resolveJwtSecret(): string {
 
 export const config = {
   isProduction: isProd,
+  isDemoMode: isDemoMode,
   host: process.env.HOST || (isProd ? '0.0.0.0' : '127.0.0.1'),
   port: parseInt(process.env.PORT || '3001', 10),
   jwtSecret: resolveJwtSecret(),

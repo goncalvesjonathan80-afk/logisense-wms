@@ -83,18 +83,16 @@ async function main() {
   let consultaPassword = 'consulta123';
 
   if (isProduction) {
-    adminPassword = process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(12).toString('base64url');
-    gerentePassword = process.env.INITIAL_GERENTE_PASSWORD || crypto.randomBytes(12).toString('base64url');
-    operadorPassword = process.env.INITIAL_OPERADOR_PASSWORD || crypto.randomBytes(12).toString('base64url');
-    consultaPassword = process.env.INITIAL_CONSULTA_PASSWORD || crypto.randomBytes(12).toString('base64url');
-
-    console.log('🔒 [PRODUÇÃO] Inicialização de senhas seguras de produção executada.');
-    if (process.env.INITIAL_ADMIN_PASSWORD) {
-      console.log('ℹ️  Senha do usuário ADMIN definida via INITIAL_ADMIN_PASSWORD.');
-    } else {
-      console.log(`🔑 Senha temporária inicial gerada para ADMIN (admin@logisense.com): ${adminPassword}`);
-      console.log('⚠️  Anote esta senha com segurança e altere-a após o primeiro login.');
+    if (!process.env.INITIAL_ADMIN_PASSWORD && !process.env.DEMO_MODE) {
+      console.warn('⚠️  [PRODUÇÃO] INITIAL_ADMIN_PASSWORD não foi informada. Gerando credencial segura interna.');
     }
+    adminPassword = process.env.INITIAL_ADMIN_PASSWORD || crypto.randomBytes(16).toString('base64url');
+    gerentePassword = process.env.INITIAL_GERENTE_PASSWORD || crypto.randomBytes(16).toString('base64url');
+    operadorPassword = process.env.INITIAL_OPERADOR_PASSWORD || crypto.randomBytes(16).toString('base64url');
+    consultaPassword = process.env.INITIAL_CONSULTA_PASSWORD || crypto.randomBytes(16).toString('base64url');
+
+    console.log('🔒 [PRODUÇÃO] Inicialização de senhas seguras executada com hash Bcrypt.');
+    console.log('🛡️  Por segurança, nenhuma senha em texto plano é exibida nos logs do servidor.');
   }
 
   // 1. Criar Usuários (4 perfis RBAC)
